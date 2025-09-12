@@ -7,8 +7,7 @@
     <style>
       body {
         margin: 0;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
-          Arial;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
         background: #f6f9fc;
         color: #0f172a;
       }
@@ -31,9 +30,7 @@
         flex-wrap: wrap;
         margin: 12px 0 6px;
       }
-      label {
-        font-weight: 700;
-      }
+      label { font-weight: 700; }
       input[type="date"] {
         padding: 10px 12px;
         border-radius: 10px;
@@ -50,15 +47,9 @@
         border: 1px solid rgba(31, 111, 255, 0.25);
         cursor: pointer;
       }
-      .ok {
-        color: #0a7a3b;
-      }
-      .err {
-        color: #b42318;
-      }
-      .muted {
-        color: #475569;
-      }
+      .ok { color: #0a7a3b; }
+      .err { color: #b42318; }
+      .muted { color: #475569; }
     </style>
   </head>
   <body>
@@ -70,13 +61,10 @@
         <label for="fromDate">From date</label>
         <input id="fromDate" type="date" />
         <button id="exportBtn" class="btn" type="button">Export CSV</button>
-        <a href="createPatient.html" class="btn" style="margin-left: auto"
-          >⬅ Back</a
-        >
+        <a href="createPatient.html" class="btn" style="margin-left: auto">⬅ Back</a>
       </div>
       <p class="muted" style="margin-top: 0">
-        Exports patients with <code>createdAt</code> on or after the chosen date
-        (local time).
+        Exports patients with <code>createdAt</code> on or after the chosen date (local time).
       </p>
 
       <p id="status" class="muted">Pick a date and click Export.</p>
@@ -91,12 +79,7 @@
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import {
         initializeFirestore,
-        collection,
-        getDocs,
-        query,
-        where,
-        orderBy,
-        Timestamp,
+        collection, getDocs, query, where, orderBy, Timestamp
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
       const firebaseConfig = {
@@ -115,8 +98,8 @@
       });
 
       const fromDateEl = document.getElementById("fromDate");
-      const exportBtn = document.getElementById("exportBtn");
-      const statusEl = document.getElementById("status");
+      const exportBtn  = document.getElementById("exportBtn");
+      const statusEl   = document.getElementById("status");
 
       // Default the date picker to TODAY (local)
       (function setDefaultToday() {
@@ -144,24 +127,36 @@
         const startTs = Timestamp.fromDate(start);
 
         // Query by createdAt >= start-of-day
-        // orderBy helps if the dataset is large and may also avoid index warnings.
         const qRef = query(
           collection(db, "patients"),
           where("createdAt", ">=", startTs),
           orderBy("createdAt")
         );
         const snap = await getDocs(qRef);
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
       }
 
-      function downloadCSV(rows, filename) {
+      // Download in Google Contacts CSV format
+      function downloadContactsCSV(rows, filename) {
+        // Excel delimiter hint + UTF-8 BOM for proper column split & unicode
+        const SEP_HINT = "sep=,";
+        const BOM = "\uFEFF";
+
         const lines = [];
-        lines.push("Name,Mobile"); // minimal contacts file
-        for (const r of rows)
-          lines.push([csvEscape(r.name), csvEscape(r.phone)].join(","));
-        const csv = lines.join("\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        // Google Contacts headers
+        lines.push("Name,Phone 1 - Value,Phone 1 - Type");
+
+        for (const r of rows) {
+          const name = csvEscape(r.name);
+          const phone = csvEscape(r.phone);
+          const type = "Mobile"; // you can change to "Home", "Work", etc.
+          lines.push(`${name},${phone},${type}`);
+        }
+
+        const csv = [SEP_HINT, ...lines].join("\n");
+        const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
+
         const a = document.createElement("a");
         a.href = url;
         a.download = filename;
@@ -181,13 +176,10 @@
           statusEl.textContent = "Gathering contacts…";
 
           const data = await fetchPatientsFromDate(dateStr);
-          const ts = new Date()
-            .toISOString()
-            .slice(0, 19)
-            .replace(/[:T]/g, "-");
-          const filename = `contacts-from-${dateStr}-${ts}.csv`;
+          const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+          const filename = `contacts-google-from-${dateStr}-${ts}.csv`;
 
-          downloadCSV(data, filename);
+          downloadContactsCSV(data, filename);
           statusEl.innerHTML = `<span class="ok">Done.</span> Exported <strong>${data.length}</strong> contact(s) created on or after <strong>${dateStr}</strong>.`;
         } catch (e) {
           console.error(e);
