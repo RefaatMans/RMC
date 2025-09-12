@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="./assets/LogoCircle.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RMC — Apps</title>
+  <style>
+    :root{
+      --bg:#eaf4ff; --card:#fff; --primary:#1f6fff; --primary-600:#1859cc;
+      --accent:#22c1ee; --text:#0f172a; --muted:#475569; --ring:rgba(31,111,255,.35);
+      --shadow:0 10px 30px rgba(2,32,71,.08); --radius-xl:20px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
+      color:var(--text); line-height:1.5;
+      display:flex; flex-direction:column;
+    }
+
+    /* Centered hero with logo + title */
+    .hero{
+      position:relative; /* for absolute logout button */
+      display:flex; flex-direction:column; align-items:center; text-align:center;
+      gap:14px; padding:48px 16px 28px;
+    }
+    .logo{
+      width:120px; height:120px; border-radius:999px; object-fit:cover;
+      box-shadow: 0 10px 24px rgba(2,32,71,.12);
+      background:#fff;
+    }
+    .brand-name{
+      margin:0; font-weight:900; letter-spacing:.2px;
+      color:var(--primary-600); font-size: clamp(1.4rem, 3.6vw, 2.2rem);
+    }
+    .tagline{ margin:4px 0 0; color:var(--muted) }
+
+    /* Logout button (top-right) */
+    .logout{
+      position:absolute; top:16px; right:20px;
+      border:0; border-radius:12px; padding:10px 14px;
+      font-weight:800; cursor:pointer; color:#fff;
+      background:linear-gradient(135deg,var(--accent),var(--primary));
+      box-shadow:0 10px 24px rgba(2,32,71,.12);
+    }
+    .logout:active{ transform: translateY(1px); }
+
+    .wrap{ max-width:900px; width:100%; margin:0 auto; padding:0 20px 48px }
+
+    /* App cards */
+    .grid{
+      display:grid; gap:20px; margin-top:8px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 720px){ .grid{ grid-template-columns: 1fr 1fr } }
+
+    .card{
+      background:var(--card); border-radius: var(--radius-xl); padding:22px;
+      box-shadow: var(--shadow); border:1px solid rgba(15,23,42,.06);
+      position:relative; overflow:hidden; isolation:isolate;
+    }
+    .card::after{
+      content:""; position:absolute; inset:auto -20% -40% auto; width:140%; height:140%;
+      background: radial-gradient(400px 200px at 120% 120%, rgba(31,111,255,.08), transparent 60%);
+      z-index:-1; pointer-events:none;
+    }
+
+    .app{
+      display:flex; gap:16px; align-items:center; text-decoration:none;
+      border:1px solid rgba(15,23,42,.06); border-radius:16px;
+      background: linear-gradient(180deg, #ffffff, #f0f7ff);
+      padding:18px; transition: transform .15s, box-shadow .15s, border-color .15s;
+      color:inherit;
+    }
+    .app:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(2,32,71,.15); border-color: rgba(31,111,255,.4) }
+
+    .icon{
+      width:48px; height:48px; border-radius:14px; display:grid; place-items:center;
+      background: linear-gradient(135deg, var(--accent), var(--primary)); color:#fff; font-size:24px;
+      box-shadow: 0 8px 18px rgba(2,32,71,.12);
+    }
+    .info{ display:flex; flex-direction:column; gap:4px }
+    .title{ font-weight:900; letter-spacing:.2px }
+    .hint{ color:var(--muted); font-size:.95rem }
+
+    footer{ text-align:center; color:var(--muted); margin-top:auto; padding:16px 0 28px }
+  </style>
+</head>
+<body>
+  <header class="hero" role="banner">
+    <button id="logoutBtn" class="logout" title="Sign out">Logout</button>
+    <img class="logo" src="./assets/LogoCircle.png" alt="Ruwais Medical Center logo">
+    <h1 class="brand-name">Ruwais Medical Center</h1>
+    <p class="tagline">Choose an app to continue.</p>
+  </header>
+
+  <main class="wrap" role="main" aria-label="Apps">
+    <section class="grid">
+      <!-- Clinic app -->
+      <div class="card">
+        <a class="app" href="home.html">
+          <div class="icon" aria-hidden="true">🩺</div>
+          <div class="info">
+            <div class="title">Clinic</div>
+            <div class="hint">Create Doctors & Patients, book Appointments.</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Cash app -->
+      <div class="card">
+        <a class="app" href="cashhome.html">
+          <div class="icon" aria-hidden="true">💳</div>
+          <div class="info">
+            <div class="title">Cash In / Out</div>
+            <div class="hint">Record payments received and expenses.</div>
+          </div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>© <span id="year"></span> RMC Medical Center</small>
+  </footer>
+
+  <script>
+    // Block access if not logged in
+    if (sessionStorage.getItem('rmcAuth') !== '1') {
+      window.location.replace('index.html');
+    }
+
+    // Footer year
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      sessionStorage.removeItem('rmcAuth');
+      sessionStorage.removeItem('rmcUser');
+      sessionStorage.removeItem('rmcLoginAt');
+      window.location.replace('index.html');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC</title>
+    <style>
+      .back {
+        text-decoration: none;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      :root {
+        --bg: #eaf4ff; /* lighter medical blue background */
+        --card: #ffffff;
+        --primary: #1f6fff; /* medical blue */
+        --primary-600: #1859cc;
+        --accent: #22c1ee; /* soft cyan accent */
+        --text: #0f172a; /* slate-900 */
+        --muted: #475569; /* slate-600 */
+        --ring: rgba(31, 111, 255, 0.35);
+        --shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
+        --radius-xl: 20px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      /* Header */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px clamp(16px, 4vw, 48px);
+        background: linear-gradient(90deg, #1f6fff, #22c1ee);
+        color: white;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        color: white;
+      }
+      .brand svg {
+        width: 36px;
+        height: 36px;
+      }
+      .brand .name {
+        font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+      }
+
+      .header .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: white;
+        font-size: 0.95rem;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 8px 12px;
+        border-radius: 999px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+      }
+
+      /* Main */
+      .wrap {
+        max-width: 1100px;
+        margin: 5% auto;
+        padding: 0 clamp(16px, 4vw, 48px) 48px;
+      }
+
+      .hero {
+        margin: 16px 0 24px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        text-align: center;
+      }
+      .hero h1 {
+        margin: 0;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+        color: var(--primary-600);
+      }
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      /* Grid of actions */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+      @media (min-width: 768px) {
+        .grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: var(--radius-xl);
+        padding: 18px;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+      }
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: auto -20% -40% auto;
+        width: 140%;
+        height: 140%;
+        background: radial-gradient(
+          400px 200px at 120% 120%,
+          rgba(31, 111, 255, 0.08),
+          transparent 60%
+        );
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      .action {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        text-align: left;
+        background: linear-gradient(180deg, #ffffff, #f0f7ff);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 16px;
+        padding: 18px;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease,
+          border-color 0.15s ease;
+      }
+      .action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(2, 32, 71, 0.15);
+        border-color: rgba(31, 111, 255, 0.4);
+      }
+
+      .icon {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+        color: white;
+      }
+      .label {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      /* Footer */
+      footer {
+        max-width: 1100px;
+        margin: 6% auto 0;
+        padding: 0 clamp(16px, 4vw, 48px) 40px;
+        color: var(--muted);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand" aria-label="RMC Medical Center">
+        <img src="./assets/LogoCircle.png" alt="Logo" style="width: 8%" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <a class="back" href="Main.html" aria-label="Back to dashboard">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Back
+      </a>
+    </header>
+
+    <main class="wrap" role="main">
+      <section class="hero">
+        <h1>Welcome back</h1>
+        <p>Choose an action to get started.</p>
+      </section>
+
+      <section class="grid" aria-label="Primary actions">
+        <div class="card">
+          <button class="action" id="btnCreateDoctor">
+            <span class="icon">🩺</span>
+            <span class="label">Create Doctor</span>
+            <span class="hint"
+              >Add a new doctor with specialty, schedule, and contacts.</span
+            >
+          </button>
+        </div>
+
+        <div class="card">
+          <button class="action" id="btnCreatePatient">
+            <span class="icon">👤</span>
+            <span class="label">Create Patient</span>
+            <span class="hint"
+              >Register a patient with demographics and medical history.</span
+            >
+          </button>
+        </div>
+
+        <div class="card">
+          <button class="action" id="btnAddAppointment">
+            <span class="icon">📅</span>
+            <span class="label">Add Appointment</span>
+            <span class="hint">Book a visit by doctor, date, and time.</span>
+          </button>
+        </div>
+
+        <!-- <div class="card">
+          <button class="action" id="btnCash">
+            <span class="icon">💳</span>
+            <span class="label">Cash In / Out</span>
+            <span class="hint">Record payments received and expenses.</span>
+          </button>
+        </div> -->
+      </section>
+    </main>
+
+    <footer>
+      <small>© <span id="year"></span> RMC Medical Center</small>
+    </footer>
+
+    <script>
+      if (sessionStorage.getItem('rmcAuth') !== '1') {
+    window.location.replace('index.html');
+  }
+      const go = (path) => alert(`Navigate to: ${path}`);
+      document
+        .getElementById("btnCreateDoctor")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "createdoctor.html")
+        );
+      document
+        .getElementById("btnCreatePatient")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "createpatient.html")
+        );
+      document
+        .getElementById("btnAddAppointment")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "createAppointment.html")
+        );
+
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>

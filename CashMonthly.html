@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="./assets/LogoCircle.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RMC — Monthly Cash Report</title>
+  <style>
+    :root{ --bg:#eaf4ff; --card:#fff; --primary:#1f6fff; --primary-600:#1859cc; --accent:#22c1ee; --text:#0f172a; --muted:#475569; --ring:rgba(31,111,255,.35); --shadow:0 10px 30px rgba(2,32,71,.08); --radius-xl:20px; --green:#16a34a; --red:#dc2626 }
+    *{ box-sizing:border-box } html,body{ height:100% }
+    body{ margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:linear-gradient(160deg,#dceeff 0%,#f6f9fc 100%); color:var(--text) }
+    .header{ display:flex; align-items:center; justify-content:space-between; padding:20px clamp(16px,4vw,48px); background:linear-gradient(90deg,#1f6fff,#22c1ee); color:#fff }
+    .brand{ display:flex; align-items:center; gap:12px; font-weight:800 }
+    .back{ text-decoration:none; color:#fff; display:inline-flex; gap:6px; align-items:center }
+    .wrap{ max-width:1100px; margin: 24px auto 48px; padding: 0 clamp(16px,4vw,48px) }
+    .card{ background:var(--card); border-radius:var(--radius-xl); padding:18px; box-shadow:var(--shadow); border:1px solid rgba(15,23,42,.06); margin-bottom:16px }
+    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+    label{ font-weight:700; color:#0b2447 }
+    input{ padding:10px 12px; border-radius:12px; border:1px solid rgba(15,23,42,.12); background:linear-gradient(180deg,#fff,#f0f7ff); outline:none }
+    input:focus{ border-color:var(--primary); box-shadow:0 0 0 4px var(--ring) }
+    .stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px }
+    .stat{ background:#fff; border:1px solid rgba(15,23,42,.08); border-radius:14px; padding:14px }
+    .stat h3{ margin:0 0 6px; font-size:0.95rem; color:var(--muted) }
+    .amt{ font-weight:900; font-size:1.2rem }
+    .in{ color:var(--green) } .out{ color:var(--red) } .net{ color:#0b2447 }
+    .table-wrap{ border:1px solid rgba(15,23,42,.06); border-radius:12px; overflow:auto; max-height:60vh }
+    table{ width:100%; border-collapse:collapse; background:#fff; font-size:.98rem }
+    thead th{ position:sticky; top:0; background:#f0f7ff; color:#0b2447; text-align:left; font-weight:800; border-bottom:1px solid rgba(15,23,42,.12); padding:10px 12px }
+    tbody td{ padding:10px 12px; border-bottom:1px solid rgba(15,23,42,.06) }
+    .empty{ text-align:center; color:var(--muted) }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="brand"><img src="./assets/LogoCircle.png" alt="Logo" style="width:8%"><span>Ruwais Medical Center</span></div>
+    <a class="back" href="cashhome.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Back</a>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="row">
+        <label for="month">Month</label>
+        <input id="month" type="month" />
+        <button id="refreshBtn" style="margin-left:auto; border:0; padding:10px 14px; border-radius:10px; font-weight:800; background:linear-gradient(135deg, var(--accent), var(--primary)); color:#fff; cursor:pointer">Refresh</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="stats">
+        <div class="stat"><h3>Cash In</h3><div class="amt in" id="sumIn">0.00</div></div>
+        <div class="stat"><h3>Cash Out</h3><div class="amt out" id="sumOut">0.00</div></div>
+        <div class="stat"><h3>Net</h3><div class="amt net" id="sumNet">0.00</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:140px">Date/Time</th><th>Patient</th><th>Doctor</th><th>Medical Act</th><th style="width:120px">Type</th><th style="width:120px">Amount</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="6" class="empty">No entries</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    if (sessionStorage.getItem('rmcAuth') !== '1') {
+    window.location.replace('index.html');
+  }
+  
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { initializeFirestore, collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+      authDomain: "rmc-db-486f0.firebaseapp.com",
+      projectId: "rmc-db-486f0",
+      storageBucket: "rmc-db-486f0.firebasestorage.app",
+      messagingSenderId: "711840343507",
+      appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = initializeFirestore(app, { experimentalForceLongPolling:true, useFetchStreams:false });
+
+    const monthEl = document.getElementById('month');
+    const rows = document.getElementById('rows');
+    const sumInEl = document.getElementById('sumIn');
+    const sumOutEl = document.getElementById('sumOut');
+    const sumNetEl = document.getElementById('sumNet');
+
+    const fmtAmt = (n)=> (n<0?'-':'') + Math.abs(n).toFixed(2);
+    const fmtDT  = (d)=> {
+      const pad2=(x)=>String(x).padStart(2,'0');
+      const mer = d.getHours()>=12?'PM':'AM';
+      const hh = d.getHours()%12 || 12;
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${hh}:${pad2(d.getMinutes())} ${mer}`;
+    };
+    function monthBounds(ym){ // ym: "YYYY-MM"
+      const [y,m] = ym.split('-').map(Number);
+      const start = new Date(y, m-1, 1, 0,0,0,0);
+      const end   = new Date(y, m,   1, 0,0,0,0);
+      return [start, end];
+    }
+    function currentYM(){
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    async function refresh(){
+      const ym = monthEl.value;
+      if (!ym) return;
+      const [start, end] = monthBounds(ym);
+      const snap = await getDocs(query(
+        collection(db,'cash'),
+        where('date','>=', start),
+        where('date','<', end),
+        orderBy('date','asc')
+      ));
+      const data = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+
+      // totals
+      let sumIn=0, sumOut=0, net=0;
+      data.forEach(x=>{
+        if (x.type==='in') sumIn += Number(x.amount||0);
+        else if (x.type==='out') sumOut += Number(x.amount||0);
+        net += Number(x.signedAmount||0);
+      });
+      sumInEl.textContent = fmtAmt(sumIn);
+      sumOutEl.textContent = fmtAmt(sumOut);
+      sumNetEl.textContent = fmtAmt(net);
+
+      // rows
+      rows.innerHTML = '';
+      if (!data.length){
+        rows.innerHTML = `<tr><td colspan="6" class="empty">No entries</td></tr>`;
+        return;
+      }
+      for (const x of data){
+        const d = x.date?.toDate ? x.date.toDate() : new Date(x.date);
+        const amt = (x.type==='out' ? -Math.abs(x.amount||0) : Math.abs(x.amount||0));
+        rows.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td>${fmtDT(d)}</td>
+            <td>${x.patientName || ''}</td>
+            <td>${x.doctorName || ''}</td>
+            <td>${x.medicalAct || ''}</td>
+            <td>${x.type==='in' ? '<span class="in">IN</span>' : '<span class="out">OUT</span>'}</td>
+            <td class="${amt<0?'out':'in'}" style="font-weight:800">${fmtAmt(amt)}</td>
+          </tr>
+        `);
+      }
+    }
+
+    // init
+    monthEl.value = currentYM();
+    document.getElementById('refreshBtn').addEventListener('click', refresh);
+    monthEl.addEventListener('change', refresh);
+    refresh();
+  </script>
+</body>
+</html>

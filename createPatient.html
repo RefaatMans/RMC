@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — Create Patient</title>
+    <style>
+      :root {
+        --bg: #eaf4ff;
+        --card: #ffffff;
+        --primary: #1f6fff;
+        --primary-600: #1859cc;
+        --accent: #22c1ee;
+        --text: #0f172a;
+        --muted: #475569;
+        --ring: rgba(31, 111, 255, 0.35);
+        --shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
+        --radius-xl: 20px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial;
+        background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
+        color: var(--text);
+        line-height: 1.5;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px clamp(16px, 4vw, 48px);
+        background: linear-gradient(90deg, #1f6fff, #22c1ee);
+        color: #fff;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+      }
+      .name {
+        font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+      }
+      .back {
+        text-decoration: none;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 clamp(16px, 4vw, 48px) 48px;
+      }
+      .hero {
+        margin: 16px 0 24px;
+        text-align: center;
+      }
+      .hero h1 {
+        margin: 0;
+        font-weight: 900;
+        color: var(--primary-600);
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      }
+      .hero p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      /* two-column layout */
+      .two-col {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 980px) {
+        .two-col {
+          grid-template-columns: 0.9fr 1.1fr;
+        }
+      } /* form a bit narrower */
+
+      .card {
+        background: var(--card);
+        border-radius: var(--radius-xl);
+        padding: 22px;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+      }
+
+      form {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 640px) {
+        form {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .field.full {
+        grid-column: 1 / -1;
+      }
+      label {
+        font-weight: 700;
+        color: #0b2447;
+      }
+      input,
+      select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+        outline: none;
+        font-size: 1rem;
+        color: var(--text);
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--ring);
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 16px;
+      }
+      .btn {
+        border: 0;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(2, 32, 71, 0.1);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+      }
+      .btn-secondary {
+        background: #eef4ff;
+        color: var(--primary-600);
+        border: 1px solid rgba(31, 111, 255, 0.25);
+      }
+
+      /* table styles (same vibe as appointments page) */
+      .head-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .title {
+        font-weight: 900;
+        color: #0b2447;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .table-wrap {
+        max-height: 520px;
+        overflow: auto;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        font-size: 0.98rem;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f0f7ff;
+        color: #0b2447;
+        text-align: left;
+        font-weight: 800;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 10px 12px;
+      }
+      tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      }
+      tbody tr:hover {
+        background: #f8fbff;
+      }
+      .empty-row td {
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fff;
+        border: 1px solid rgba(31, 111, 255, 0.2);
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        display: none;
+      }
+      .toast.show {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand">
+        <img src="./assets/LogoCircle.png" alt="Logo" style="width: 8%" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <a class="back" href="home.html" aria-label="Back to dashboard">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Back
+      </a>
+    </header>
+
+    <main class="wrap">
+      <section class="hero">
+        <h1>Create Patient</h1>
+        <p>Add a new patient record. Fields marked with * are required.</p>
+      </section>
+
+      <section class="two-col">
+        <!-- Left: form -->
+        <section class="card">
+          <form id="patientForm" novalidate>
+            <div class="field full">
+              <label for="name">Full Name *</label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                placeholder="e.g., John Doe"
+              />
+            </div>
+
+            <div class="field">
+              <label for="phone">Phone *</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                placeholder="e.g., +961 3 123 456"
+              />
+            </div>
+
+            <div class="field">
+              <label for="fileNumber">File Number (optional)</label>
+              <input
+                id="fileNumber"
+                name="fileNumber"
+                type="text"
+                placeholder="e.g., 1204"
+              />
+            </div>
+
+            <div class="actions full">
+              <button type="button" class="btn btn-secondary" id="cancelBtn">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary">
+                Save Patient
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Right: patients table -->
+        <section class="card" aria-label="Patients list">
+          <div class="head-row">
+            <div>
+              <div class="title">Patients</div>
+              <div class="muted">All registered patients</div>
+            </div>
+            <div class="muted"><strong id="patientsCount">0</strong> total</div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40%">Name</th>
+                  <th style="width: 25%">Mobile</th>
+                  <th style="width: 20%">File #</th>
+                </tr>
+              </thead>
+              <!-- Patients search -->
+              <div
+                class="list-controls"
+                style="
+                  display: flex;
+                  gap: 12px;
+                  align-items: center;
+                  margin: 10px 0 8px;
+                "
+              >
+                <input
+                  id="patientSearch"
+                  type="search"
+                  placeholder="Search by phone or file #…"
+                  style="
+                    flex: 1;
+                    padding: 10px 12px;
+                    border-radius: 10px;
+                    border: 1px solid rgba(15, 23, 42, 0.12);
+                    background: #fff;
+                  "
+                />
+                <label
+                  style="
+                    display: flex;
+                    gap: 6px;
+                    align-items: center;
+                    font-size: 0.95rem;
+                  "
+                >
+                  <input
+                    type="radio"
+                    name="patientMode"
+                    value="phone"
+                    checked
+                  />
+                  Phone
+                </label>
+                <label
+                  style="
+                    display: flex;
+                    gap: 6px;
+                    align-items: center;
+                    font-size: 0.95rem;
+                  "
+                >
+                  <input type="radio" name="patientMode" value="file" /> File #
+                </label>
+              </div>
+
+              <tbody id="patientsBody">
+                <tr class="empty-row">
+                  <td colspan="4">No patients yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+      if (sessionStorage.getItem('rmcAuth') !== '1') {
+    window.location.replace('index.html');
+  }
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore,
+        collection,
+        addDoc,
+        getDocs,
+        query,
+        where,
+        orderBy,
+        startAt,
+        endAt,
+        limit,
+        serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+        authDomain: "rmc-db-486f0.firebaseapp.com",
+        projectId: "rmc-db-486f0",
+        storageBucket: "rmc-db-486f0.firebasestorage.app",
+        messagingSenderId: "711840343507",
+        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+
+      // --- DOM
+      const form = document.getElementById("patientForm");
+      const toast = document.getElementById("toast");
+      const cancelBtn = document.getElementById("cancelBtn");
+
+      const patientsBody = document.getElementById("patientsBody"); // tbody
+      const patientsCountEl = document.getElementById("patientsCount"); // small count element (optional)
+
+      const searchInput = document.getElementById("patientSearch");
+      const modeRadios = document.querySelectorAll('input[name="patientMode"]');
+
+      // --- Helpers
+      const showToast = (msg) => {
+        toast.textContent = msg;
+        toast.classList.add("show");
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => toast.classList.remove("show"), 2200);
+      };
+      const byName = (a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        });
+
+      const normalizePhone = (p) => String(p || "").replace(/\D/g, "");
+      const toNum = (v) => {
+        const s = String(v ?? "").replace(/\D/g, "");
+        return s ? parseInt(s, 10) : NaN;
+      };
+
+      function renderPatients(list) {
+        if (!patientsBody) return; // if table isn't on this page
+        patientsBody.innerHTML = "";
+        if (patientsCountEl) patientsCountEl.textContent = list.length;
+        if (!list.length) {
+          patientsBody.innerHTML = `<tr class="empty-row"><td colspan="4">No patients found.</td></tr>`;
+          return;
+        }
+        for (const p of list) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+        <td>${p.name || "—"}</td>
+        <td>${p.phone || "—"}</td>
+        <td>${p.fileNumber ?? "—"}</td>
+      `;
+          patientsBody.appendChild(tr);
+        }
+      }
+
+      async function loadPatients() {
+        const snap = await getDocs(collection(db, "patients"));
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
+      }
+
+      async function refreshPatients() {
+        try {
+          const pts = await loadPatients();
+          renderPatients(pts);
+        } catch (err) {
+          console.error(err);
+          showToast("Couldn't load patients.");
+        }
+      }
+
+      async function runSearch() {
+        const termRaw = (searchInput?.value || "").trim();
+        const mode = [...modeRadios].find((r) => r.checked)?.value || "phone";
+
+        if (!termRaw) return refreshPatients();
+
+        try {
+          let list = [];
+          if (mode === "phone") {
+            const pk = normalizePhone(termRaw);
+            if (!pk) return renderPatients([]);
+
+            // 1) Try indexed prefix search on phoneKey
+            try {
+              const qRef = query(
+                collection(db, "patients"),
+                orderBy("phoneKey"),
+                startAt(pk),
+                endAt(pk + "\uf8ff"),
+                limit(100)
+              );
+              const snap = await getDocs(qRef);
+              list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            } catch (_) {
+              // ignore; we'll fall back below
+            }
+
+            // 2) If no matches (or query failed), do a forgiving client filter
+            if (!list.length) {
+              const all = await loadPatients();
+              list = all.filter((p) => {
+                const digits = normalizePhone(p.phone);
+                // match prefix OR contains last digits; helps with +961 / 0 formats
+                return digits.startsWith(pk) || digits.includes(pk);
+              });
+            }
+          } else {
+            // File # search (exact or prefix)
+            const t = termRaw.toUpperCase();
+            if (/^\d+$/.test(t)) {
+              try {
+                const qRef = query(
+                  collection(db, "patients"),
+                  orderBy("fileNumber"),
+                  startAt(t),
+                  endAt(t + "\uf8ff"),
+                  limit(100)
+                );
+                const snap = await getDocs(qRef);
+                list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+              } catch (_) {
+                const all = await loadPatients();
+                list = all.filter((p) =>
+                  String(p.fileNumber ?? "")
+                    .toUpperCase()
+                    .startsWith(t)
+                );
+              }
+            } else {
+              const snap = await getDocs(
+                query(collection(db, "patients"), where("fileNumber", "==", t))
+              );
+              list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            }
+          }
+
+          renderPatients(list.sort(byName));
+        } catch (err) {
+          console.error(err);
+          showToast("Search failed.");
+        }
+      }
+
+      // small debounce to avoid spamming queries
+      function debounce(fn, ms = 200) {
+        let t;
+        return (...args) => {
+          clearTimeout(t);
+          t = setTimeout(() => fn(...args), ms);
+        };
+      }
+      const debouncedSearch = debounce(runSearch, 180);
+
+      // --- Form save (now stores phoneKey; fileNumber optional with auto-increment)
+      async function getNextFileNumber() {
+        const snap = await getDocs(collection(db, "patients"));
+        let max = 0;
+        snap.forEach((doc) => {
+          const n = toNum(doc.data().fileNumber);
+          if (!Number.isNaN(n) && n > max) max = n;
+        });
+        return String(max + 1);
+      }
+
+      cancelBtn?.addEventListener("click", () => {
+        if (confirm("Discard changes?")) window.location.href = "home.html";
+      });
+
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          return;
+        }
+
+        const name = form.name.value.trim();
+        const phone = form.phone.value.trim();
+        let fileRaw = (form.fileNumber.value || "").trim();
+
+        try {
+          if (fileRaw) {
+            fileRaw = fileRaw.toUpperCase();
+            const dup = await getDocs(
+              query(
+                collection(db, "patients"),
+                where("fileNumber", "==", fileRaw)
+              )
+            );
+            if (!dup.empty) {
+              showToast("A patient with this file number already exists.");
+              return;
+            }
+          } else {
+            fileRaw = await getNextFileNumber();
+            // safety against rare race
+            let tries = 0;
+            while (tries < 3) {
+              const dup = await getDocs(
+                query(
+                  collection(db, "patients"),
+                  where("fileNumber", "==", fileRaw)
+                )
+              );
+              if (dup.empty) break;
+              fileRaw = String(parseInt(fileRaw, 10) + 1);
+              tries++;
+            }
+          }
+
+          await addDoc(collection(db, "patients"), {
+            name,
+            phone,
+            phoneKey: normalizePhone(phone), // <— enables fast phone search
+            fileNumber: fileRaw,
+            fileNumberNum: toNum(fileRaw) ?? null,
+            numberOfVisits: 0,
+            createdAt: serverTimestamp(),
+          });
+
+          showToast(`Patient "${name}" saved.`);
+          form.reset();
+          refreshPatients();
+        } catch (err) {
+          console.error(err);
+          showToast("Error saving patient.");
+        }
+      });
+
+      // --- Wire up search
+      searchInput?.addEventListener("input", debouncedSearch);
+      modeRadios?.forEach((r) => r.addEventListener("change", debouncedSearch));
+
+      // Initial table load
+      refreshPatients();
+    </script>
+  </body>
+</html>

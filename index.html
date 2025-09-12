@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — Login</title>
+    <style>
+      :root {
+        --bg: #eaf4ff;
+        --card: #fff;
+        --primary: #1f6fff;
+        --primary-600: #1859cc;
+        --accent: #22c1ee;
+        --text: #0f172a;
+        --muted: #475569;
+        --ring: rgba(31, 111, 255, 0.35);
+        --shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
+        --radius: 16px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial;
+        background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Hero (like main.html) */
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 14px;
+        padding: 48px 16px 24px;
+        margin-top: 4vh;
+      }
+      .logo {
+        width: 140px;
+        height: 140px;
+        border-radius: 999px;
+        object-fit: cover;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(2, 32, 71, 0.12);
+      }
+      .brand {
+        margin: 0;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        color: var(--primary-600);
+        font-size: clamp(1.4rem, 3.6vw, 2.2rem);
+      }
+      .tagline {
+        margin: 4px 0 0;
+        color: var(--muted);
+      }
+
+      /* Centered form card */
+      .wrap {
+        display: grid;
+        place-items: center;
+        padding: 0 16px 48px;
+      }
+      .card {
+        width: min(440px, 92vw);
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 22px 20px 20px;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        box-shadow: var(--shadow);
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.25rem;
+      }
+      .muted {
+        color: var(--muted);
+        margin: 0 0 18px;
+        font-size: 0.95rem;
+      }
+
+      form {
+        display: grid;
+        gap: 14px;
+      }
+      label {
+        font-weight: 700;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+        font-size: 1rem;
+        outline: none;
+      }
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--ring);
+      }
+
+      .btn {
+        appearance: none;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-weight: 800;
+        cursor: pointer;
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+        box-shadow: 0 10px 24px rgba(2, 32, 71, 0.1);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .link-btn {
+        background: none;
+        border: 0;
+        color: var(--muted);
+        cursor: pointer;
+        font-weight: 700;
+        padding: 8px;
+        border-radius: 8px;
+      }
+      .link-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--ring);
+      }
+
+      .error {
+        display: none;
+        margin-top: 6px;
+        color: #b91c1c;
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+      }
+      .error.show {
+        display: block;
+      }
+
+      noscript {
+        display: block;
+        margin: 16px 0;
+        color: #b91c1c;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Hero (logo + name, like main.html) -->
+    <header class="hero" role="banner">
+      <img class="logo" src="./assets/LogoCircle.png" alt="RMC logo" />
+      <h1 class="brand">Ruwais Medical Center</h1>
+      <!-- <p class="tagline">Sign in to continue.</p> -->
+    </header>
+
+    <!-- Form card centered under hero -->
+    <main class="wrap" role="main">
+      <div class="card" aria-label="Sign in form">
+        <h1 style="text-align: center">Sign in</h1>
+        <hr style="max-width: 70%;"/>
+        <!-- <p class="muted">Use your clinic credentials.</p> -->
+        <form id="loginForm" novalidate>
+          <div class="field">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              name="username"
+              autocomplete="username"
+              placeholder="username"
+              required
+            />
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="row">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="•••••••"
+                required
+              />
+              <button
+                type="button"
+                id="togglePwd"
+                class="link-btn"
+                aria-controls="password"
+                aria-pressed="false"
+              >
+                Show
+              </button>
+            </div>
+          </div>
+
+          <button class="btn" type="submit">Log in</button>
+          <div id="error" class="error">
+            Invalid credentials. Please try again.
+          </div>
+        </form>
+
+        <noscript>JavaScript is required to sign in.</noscript>
+      </div>
+    </main>
+
+    <script>
+      // ===== Config =====
+      const DEST_URL = "main.html"; // where to go after login
+
+      // If already logged in, go to main
+      if (sessionStorage.getItem("rmcAuth") === "1") {
+        window.location.replace(DEST_URL);
+      }
+
+      // DOM
+      const form = document.getElementById("loginForm");
+      const errorBox = document.getElementById("error");
+      const userEl = document.getElementById("username");
+      const passEl = document.getElementById("password");
+      const togglePwd = document.getElementById("togglePwd");
+
+      // Show/Hide password
+      togglePwd.addEventListener("click", () => {
+        const show = passEl.type === "password";
+        passEl.type = show ? "text" : "password";
+        togglePwd.textContent = show ? "Hide" : "Show";
+        togglePwd.setAttribute("aria-pressed", String(show));
+        passEl.focus();
+      });
+
+      // Submit
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        errorBox.classList.remove("show");
+
+        const username = (userEl.value || "").trim();
+        const password = (passEl.value || "").trim();
+
+        // Hardcoded check
+        if (username === "admin" && password === "RMC123") {
+          sessionStorage.setItem("rmcAuth", "1");
+          sessionStorage.setItem("rmcUser", "admin");
+          sessionStorage.setItem("rmcLoginAt", String(Date.now()));
+          window.location.replace(DEST_URL);
+          return;
+        }
+
+        // Wrong creds
+        errorBox.classList.add("show");
+        passEl.focus();
+        passEl.select();
+      });
+    </script>
+  </body>
+</html>
