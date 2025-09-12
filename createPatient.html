@@ -316,7 +316,20 @@
               <div class="title">Patients</div>
               <div class="muted">All registered patients</div>
             </div>
-            <div class="muted"><strong id="patientsCount">0</strong> total</div>
+
+            <div style="display: flex; align-items: center; gap: 10px">
+              <!-- NEW: Export contacts button opens the export page -->
+              <a
+                href="exportContacts.html"
+                class="btn btn-secondary"
+                style="text-decoration: none"
+              >
+                Export contacts
+              </a>
+              <div class="muted">
+                <strong id="patientsCount">0</strong> total
+              </div>
+            </div>
           </div>
 
           <div class="table-wrap">
@@ -392,9 +405,9 @@
     <div class="toast" id="toast"></div>
 
     <script type="module">
-      if (sessionStorage.getItem('rmcAuth') !== '1') {
-    window.location.replace('index.html');
-  }
+      if (sessionStorage.getItem("rmcAuth") !== "1") {
+        window.location.replace("index.html");
+      }
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import {
         initializeFirestore,

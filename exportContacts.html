@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — Export Contacts</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial;
+        background: #f6f9fc;
+        color: #0f172a;
+      }
+      .wrap {
+        max-width: 700px;
+        margin: 8vh auto;
+        background: #fff;
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.6rem;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 12px 0 6px;
+      }
+      label {
+        font-weight: 700;
+      }
+      input[type="date"] {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+      }
+      .btn {
+        display: inline-block;
+        padding: 10px 14px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 700;
+        background: #eef4ff;
+        color: #1859cc;
+        border: 1px solid rgba(31, 111, 255, 0.25);
+        cursor: pointer;
+      }
+      .ok {
+        color: #0a7a3b;
+      }
+      .err {
+        color: #b42318;
+      }
+      .muted {
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Export contacts</h1>
+
+      <!-- Controls -->
+      <div class="row">
+        <label for="fromDate">From date</label>
+        <input id="fromDate" type="date" />
+        <button id="exportBtn" class="btn" type="button">Export CSV</button>
+        <a href="createPatient.html" class="btn" style="margin-left: auto"
+          >⬅ Back</a
+        >
+      </div>
+      <p class="muted" style="margin-top: 0">
+        Exports patients with <code>createdAt</code> on or after the chosen date
+        (local time).
+      </p>
+
+      <p id="status" class="muted">Pick a date and click Export.</p>
+    </main>
+
+    <script type="module">
+      // Gate
+      if (sessionStorage.getItem("rmcAuth") !== "1") {
+        window.location.replace("index.html");
+      }
+
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore,
+        collection,
+        getDocs,
+        query,
+        where,
+        orderBy,
+        Timestamp,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+        authDomain: "rmc-db-486f0.firebaseapp.com",
+        projectId: "rmc-db-486f0",
+        storageBucket: "rmc-db-486f0.firebasestorage.app",
+        messagingSenderId: "711840343507",
+        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+
+      const fromDateEl = document.getElementById("fromDate");
+      const exportBtn = document.getElementById("exportBtn");
+      const statusEl = document.getElementById("status");
+
+      // Default the date picker to TODAY (local)
+      (function setDefaultToday() {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        fromDateEl.value = `${yyyy}-${mm}-${dd}`;
+      })();
+
+      function csvEscape(val) {
+        const s = (val ?? "").toString().replace(/"/g, '""');
+        return /[",\n]/.test(s) ? `"${s}"` : s;
+      }
+
+      function toStartOfDayLocal(dateStr) {
+        // dateStr is "YYYY-MM-DD"
+        const [y, m, d] = dateStr.split("-").map(Number);
+        return new Date(y, m - 1, d, 0, 0, 0, 0); // local midnight
+      }
+
+      async function fetchPatientsFromDate(dateStr) {
+        const start = toStartOfDayLocal(dateStr);
+        const startTs = Timestamp.fromDate(start);
+
+        // Query by createdAt >= start-of-day
+        // orderBy helps if the dataset is large and may also avoid index warnings.
+        const qRef = query(
+          collection(db, "patients"),
+          where("createdAt", ">=", startTs),
+          orderBy("createdAt")
+        );
+        const snap = await getDocs(qRef);
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
+
+      function downloadCSV(rows, filename) {
+        const lines = [];
+        lines.push("Name,Mobile"); // minimal contacts file
+        for (const r of rows)
+          lines.push([csvEscape(r.name), csvEscape(r.phone)].join(","));
+        const csv = lines.join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      exportBtn.addEventListener("click", async () => {
+        try {
+          const dateStr = fromDateEl.value;
+          if (!dateStr) {
+            statusEl.textContent = "Please choose a date.";
+            return;
+          }
+          statusEl.textContent = "Gathering contacts…";
+
+          const data = await fetchPatientsFromDate(dateStr);
+          const ts = new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[:T]/g, "-");
+          const filename = `contacts-from-${dateStr}-${ts}.csv`;
+
+          downloadCSV(data, filename);
+          statusEl.innerHTML = `<span class="ok">Done.</span> Exported <strong>${data.length}</strong> contact(s) created on or after <strong>${dateStr}</strong>.`;
+        } catch (e) {
+          console.error(e);
+          statusEl.innerHTML = `<span class="err">Export failed.</span> See console for details.`;
+        }
+      });
+    </script>
+  </body>
+</html>
