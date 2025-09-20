@@ -144,6 +144,9 @@
         color: var(--muted);
         text-align: center;
       }
+      .center-2 {
+    grid-column: 2;   /* middle column in a 3-column grid */
+  }
     </style>
   </head>
   <body>
@@ -199,6 +202,13 @@
             <span class="hint">Totals & entries for a selected month.</span>
           </button>
         </div>
+        <div class="card center-2">
+  <button class="action" id="btnReceivables">
+    <span class="icon">🧾</span>
+    <span class="label">Account Receivables</span>
+    <span class="hint">Track outstanding patient balances and upcoming payments.</span>
+  </button>
+</div>
       </section>
     </main>
 
@@ -228,6 +238,12 @@
         .addEventListener(
           "click",
           () => (window.location.href = "cashMonthly.html")
+        );
+      document
+        .getElementById("btnReceivables")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "AccountReceivables.html")
         );
     </script>
   </body>

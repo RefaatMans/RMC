@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — Account Receivables</title>
+    <style>
+      :root {
+        --bg: #eaf4ff;
+        --card: #fff;
+        --primary: #1f6fff;
+        --primary-600: #1859cc;
+        --accent: #22c1ee;
+        --text: #0f172a;
+        --muted: #475569;
+        --ring: rgba(31, 111, 255, 0.35);
+        --shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
+        --radius-xl: 20px;
+        --grid: #e8eff8;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
+        color: var(--text);
+        line-height: 1.45;
+      }
+
+      /* header */
+      .header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 20px clamp(16px, 4vw, 48px);
+        background: linear-gradient(90deg, #1f6fff, #22c1ee);
+        color: #fff;
+      }
+      .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; }
+      .name { font-size: clamp(1.1rem, 2.2vw, 1.4rem); }
+      .back { color: #fff; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+
+      .wrap { margin: 0 2%; }
+      .hero { margin: 16px 0 14px; text-align: center; }
+      .hero h1 { margin: 0; font-weight: 900; color: var(--primary-600); }
+      .hero p { margin: 4px 0 0; color: var(--muted); font-size: 0.95rem; }
+
+      /* card */
+      .card {
+        background: var(--card); border-radius: var(--radius-xl);
+        padding: 14px 14px 10px; box-shadow: var(--shadow);
+        border: 1px solid rgba(15,23,42,.06);
+      }
+      .toolbar {
+        display: flex; gap: 10px; align-items: center; justify-content: space-between;
+        margin: 2px 0 8px;
+      }
+      .btn {
+        border: 0; padding: 9px 12px; border-radius: 12px; font-weight: 800; cursor: pointer;
+        background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff;
+        box-shadow: 0 8px 18px rgba(2,32,71,.12); font-size: .95rem;
+      }
+      .btn:active { transform: translateY(1px); }
+      .count { color: var(--muted); font-size: .9rem; }
+
+      /* Excel-ish compact table */
+      .table-wrap {
+        max-height: 78vh; overflow: auto;
+        border: 1px solid rgba(15,23,42,.06); border-radius: 12px;
+      }
+      table {
+        width: 100%; border-collapse: separate; border-spacing: 0; background: #fff;
+        font-size: .86rem; line-height: 1.2; font-variant-numeric: tabular-nums;
+      }
+      thead th {
+        position: sticky; top: 0; z-index: 2; background: #f0f7ff; color: #0b2447;
+        text-align: left; font-weight: 800; padding: 6px 8px; border-bottom: 1px solid var(--grid);
+        white-space: nowrap;
+      }
+      tbody td { padding: 6px 8px; border-bottom: 1px solid var(--grid); border-right: 1px solid var(--grid); }
+      tbody td:last-child { border-right: none; }
+      tbody tr:nth-child(even) { background: #fbfdff; }
+      tbody tr:hover { background: #f6faff; }
+      .right { text-align: right; }
+
+      /* input inside table cell for editable Paid */
+      .cell-input {
+        width: 100%;
+        max-width: 90px;          /* fits the Paid column */
+        padding: 4px 6px;
+        border-radius: 8px;
+        border: 1px solid rgba(15,23,42,.12);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+        font-size: .86rem;
+        text-align: right;
+        outline: none;
+      }
+      .cell-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring); }
+
+      /* sticky totals row (not used but styled) */
+      tfoot td {
+        position: sticky; bottom: 0; z-index: 1; background: #f7fbff; font-weight: 900;
+        border-top: 1px solid var(--grid); padding: 8px; border-right: 1px solid var(--grid);
+      }
+      tfoot td:last-child { border-right: none; }
+
+      .muted { color: var(--muted); }
+
+      /* Modal */
+      .modal {
+        position: fixed; inset: 0; display: none; place-items: center;
+        background: rgba(0,0,0,.25); padding: 16px; z-index: 9999;
+      }
+      .modal.show { display: grid; }
+      .dialog {
+        width: min(560px, 92vw); background: #fff; border-radius: 16px; padding: 14px;
+        border: 1px solid rgba(15,23,42,.1); box-shadow: 0 20px 40px rgba(2,32,71,.18);
+        z-index: 10000;
+      }
+      .dialog h3 { margin: 2px 0 8px; font-size: 1.05rem; }
+      .grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+      .grid .full { grid-column: 1/-1; }
+      label { font-weight: 700; font-size: .92rem; }
+      input, select {
+        width: 100%; padding: 8px 10px; border-radius: 10px;
+        border: 1px solid rgba(15,23,42,.12);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+        outline: none; font-size: .95rem;
+      }
+      input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+      .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+      .btn-secondary { background: #eef4ff; color: var(--primary-600); border: 1px solid rgba(31,111,255,.25); }
+      .preview { color: var(--muted); font-size: .92rem; }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand">
+        <img src="./assets/LogoCircle.png" alt="Logo" style="width: 8%" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <a class="back" href="cashhome.html" aria-label="Back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Back
+      </a>
+    </header>
+
+    <main class="wrap" role="main">
+      <section class="hero">
+        <h1>Account Receivables</h1>
+      </section>
+
+      <section class="card">
+        <div class="toolbar">
+          <button class="btn" id="btnNew">+ New Record</button>
+          <div class="count"><span id="recCount">0</span> record(s)</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 110px">Date</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th class="right" style="width: 110px">Amount</th>
+                <th class="right" style="width: 90px">Paid</th>
+                <th class="right" style="width: 110px">Remaining</th>
+                <th class="right" style="width: 90px">Lab</th>
+                <th class="right" style="width: 120px">Doctor</th>
+                <th class="right" style="width: 120px">Center 60%</th>
+              </tr>
+            </thead>
+            <tbody id="bodyRows">
+              <tr>
+                <td colspan="9" class="muted" style="text-align: center">No data yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+        <h3 id="mTitle">New Receivable</h3>
+        <form id="recForm" class="grid">
+          <div>
+            <label for="date">Date *</label>
+            <input id="date" name="date" type="date" required />
+          </div>
+          <div>
+            <label for="doctor">Doctor *</label>
+            <input id="doctor" name="doctor" required placeholder="Doctor name" />
+          </div>
+          <div>
+            <label for="patient">Patient *</label>
+            <input id="patient" name="patient" required placeholder="Patient name" />
+          </div>
+          <div>
+            <label for="amount">Amount *</label>
+            <input id="amount" name="amount" type="number" step="0.01" min="0" required />
+          </div>
+          <div>
+            <label for="paid">Paid *</label>
+            <input id="paid" name="paid" type="number" step="0.01" min="0" required />
+          </div>
+          <div>
+            <label for="lab">Lab Amount</label>
+            <input id="lab" name="lab" type="number" step="0.01" min="0" />
+          </div>
+
+          <div class="full preview" id="preview">
+            Remaining: 0 • Doctor 40%: 0 • Center 60%: 0
+          </div>
+
+          <div class="row full">
+            <button type="button" class="btn btn-secondary" id="btnCancel">Cancel</button>
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module">
+      // session guard
+      if (sessionStorage.getItem("rmcAuth") !== "1") {
+        window.location.replace("index.html");
+      }
+
+      // Firebase
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore,
+        collection,
+        addDoc,
+        getDocs,
+        query,
+        orderBy,
+        serverTimestamp,
+        updateDoc,
+        doc,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+        authDomain: "rmc-db-486f0.firebaseapp.com",
+        projectId: "rmc-db-486f0",
+        storageBucket: "rmc-db-486f0.firebasestorage.app",
+        messagingSenderId: "711840343507",
+        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+
+      // DOM
+      const modal = document.getElementById("modal");
+      const form = document.getElementById("recForm");
+      const bodyRows = document.getElementById("bodyRows");
+      const recCount = document.getElementById("recCount");
+
+      const dateEl = document.getElementById("date");
+      const patientEl = document.getElementById("patient");
+      const doctorEl = document.getElementById("doctor");
+      const amountEl = document.getElementById("amount");
+      const paidEl = document.getElementById("paid");
+      const labEl = document.getElementById("lab");
+      const preview = document.getElementById("preview");
+
+      document.getElementById("btnNew").onclick = () => openModal();
+      document.getElementById("btnCancel").onclick = () => closeModal();
+
+      // helpers
+      const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+      const toDate = (yyyy_mm_dd) => {
+        const [y, m, d] = (yyyy_mm_dd || "").split("-").map(Number);
+        return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+      };
+
+      function openModal() {
+        dateEl.value = new Date().toISOString().slice(0, 10);
+        amountEl.value = "";
+        paidEl.value   = "";
+        labEl.value    = "";
+        patientEl.value = "";
+        doctorEl.value  = "";
+        updatePreview();
+        modal.classList.add("show");
+        document.body.style.overflow = "hidden";
+        patientEl.focus();
+      }
+      function closeModal() {
+        modal.classList.remove("show");
+        document.body.style.overflow = "";
+      }
+
+      function updatePreview() {
+        const amt = Number(amountEl.value || 0);
+        const paid = Number(paidEl.value || 0);
+        const lab  = Number(labEl.value || 0);
+
+        const remaining = Math.max(0, amt - paid);
+        const splitBase = Math.max(0, amt - lab); // AFTER lab
+        const d40 = splitBase * 0.4;
+        const c60 = splitBase * 0.6;
+
+        preview.textContent =
+          `Remaining: ${fmt(remaining)} • Doctor 40%: ${fmt(d40)} • Center 60%: ${fmt(c60)}`;
+      }
+      labEl.addEventListener("input", updatePreview);
+      amountEl.addEventListener("input", updatePreview);
+      paidEl.addEventListener("input", updatePreview);
+
+      // load & render
+      async function loadReceivables() {
+        const snap = await getDocs(
+          query(
+            collection(db, "receivables"),
+            orderBy("date", "desc"),
+            orderBy("createdAt", "desc")
+          )
+        );
+        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        render(rows);
+      }
+
+      function render(rows) {
+        bodyRows.innerHTML = "";
+        recCount.textContent = rows.length;
+
+        if (!rows.length) {
+          bodyRows.innerHTML =
+            `<tr><td colspan="9" class="muted" style="text-align:center">No data yet.</td></tr>`;
+          return;
+        }
+
+        for (const r of rows) {
+          const amt  = Number(r.amount || 0);
+          const paid = Number(r.paid || 0);
+          const lab  = Number(r.lab || 0);
+
+          const rem       = Math.max(0, amt - paid);
+          const splitBase = Math.max(0, amt - lab);
+          const d40 = splitBase * 0.4;
+          const c60 = splitBase * 0.6;
+
+          const dt = r.date?.toDate ? r.date.toDate()
+                   : r.date instanceof Date ? r.date
+                   : new Date(r.date);
+          const dstr = isNaN(dt) ? "" : dt.toISOString().slice(0, 10);
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${dstr}</td>
+            <td>${r.patient || "—"}</td>
+            <td>${r.doctor || "—"}</td>
+            <td class="right">${fmt(amt)}</td>
+            <td class="right">
+              <input class="cell-input paid-input" type="number" step="0.01" min="0"
+                     value="${paid}" data-id="${r.id}" data-amount="${amt}" aria-label="Paid amount">
+            </td>
+            <td class="right">${fmt(rem)}</td>
+            <td class="right">${fmt(lab)}</td>
+            <td class="right">${fmt(d40)}</td>
+            <td class="right">${fmt(c60)}</td>
+          `;
+          bodyRows.appendChild(tr);
+
+          // attach inline editor handlers for Paid
+          const input = tr.querySelector(".paid-input");
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+          });
+          input.addEventListener("change", () => savePaid(input));
+          input.addEventListener("blur",   () => savePaid(input));
+        }
+      }
+
+      async function savePaid(input) {
+        if (!input || input.disabled) return;
+        const id = input.dataset.id;
+        let newVal = Number(input.value || 0);
+        if (!isFinite(newVal) || newVal < 0) newVal = 0;
+
+        // optional: clamp to amount so paid doesn't exceed total
+        const maxAmount = Number(input.dataset.amount || Infinity);
+        if (isFinite(maxAmount)) newVal = Math.min(newVal, maxAmount);
+
+        // Avoid unnecessary writes if unchanged (allowing minor float diff)
+        const current = Number(input.getAttribute("value") || 0);
+        if (Math.abs(newVal - current) < 0.0001) return;
+
+        input.disabled = true;
+        try {
+          await updateDoc(doc(db, "receivables", id), {
+            paid: newVal,
+            updatedAt: serverTimestamp(),
+          });
+          // Keep the field's attribute in sync so further edits compare correctly
+          input.setAttribute("value", String(newVal));
+          // Re-render to recompute Remaining and totals
+          await loadReceivables();
+        } catch (err) {
+          console.error(err);
+          alert("Failed to update paid amount.");
+          input.value = current;
+        } finally {
+          input.disabled = false;
+        }
+      }
+
+      // save new record
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          return;
+        }
+
+        const payload = {
+          date: toDate(dateEl.value),
+          patient: (patientEl.value || "").trim(),
+          doctor: (doctorEl.value || "").trim(),
+          amount: Number(amountEl.value || 0),
+          paid: Number(paidEl.value || 0),
+          lab: Number(labEl.value || 0),
+          createdAt: serverTimestamp(),
+        };
+
+        try {
+          await addDoc(collection(db, "receivables"), payload);
+          closeModal();
+          await loadReceivables();
+        } catch (err) {
+          console.error(err);
+          alert("Failed to save. Check console.");
+        }
+      });
+
+      // init
+      loadReceivables();
+    </script>
+  </body>
+</html>

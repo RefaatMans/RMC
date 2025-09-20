@@ -467,21 +467,38 @@
         return s ? parseInt(s, 10) : NaN;
       };
 
+      // Helper: turn "F-00123" -> 123, "123" -> 123, missing -> -Infinity (so it sorts last)
+      function fileNumToInt(v) {
+        if (typeof v === "number") return v;
+        if (!v) return -Infinity;
+        const m = String(v).match(/\d+/g);
+        return m ? parseInt(m.join(""), 10) : -Infinity;
+      }
+
       function renderPatients(list) {
-        if (!patientsBody) return; // if table isn't on this page
+        if (!patientsBody) return;
+
+        // sort by fileNumber (largest -> smallest)
+        const sorted = [...list].sort(
+          (a, b) => fileNumToInt(b.fileNumber) - fileNumToInt(a.fileNumber)
+        );
+
         patientsBody.innerHTML = "";
-        if (patientsCountEl) patientsCountEl.textContent = list.length;
-        if (!list.length) {
-          patientsBody.innerHTML = `<tr class="empty-row"><td colspan="4">No patients found.</td></tr>`;
+        if (patientsCountEl) patientsCountEl.textContent = sorted.length;
+
+        if (!sorted.length) {
+          // (You probably want colspan="3" here since there are 3 columns)
+          patientsBody.innerHTML = `<tr class="empty-row"><td colspan="3">No patients found.</td></tr>`;
           return;
         }
-        for (const p of list) {
+
+        for (const p of sorted) {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-        <td>${p.name || "—"}</td>
-        <td>${p.phone || "—"}</td>
-        <td>${p.fileNumber ?? "—"}</td>
-      `;
+      <td>${p.name || "—"}</td>
+      <td>${p.phone || "—"}</td>
+      <td>${p.fileNumber ?? "—"}</td>
+    `;
           patientsBody.appendChild(tr);
         }
       }

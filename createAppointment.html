@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>RMC — Create Appointment</title>
 
-    <!-- Tom Select (searchable dropdowns) -->
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css"
@@ -14,7 +13,7 @@
     <style>
       :root {
         --bg: #eaf4ff;
-        --card: #ffffff;
+        --card: #fff;
         --primary: #1f6fff;
         --primary-600: #1859cc;
         --accent: #22c1ee;
@@ -24,120 +23,308 @@
         --shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
         --radius-xl: 20px;
       }
-      * { box-sizing: border-box; }
-      html, body { height: 100%; }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
       body {
         margin: 0;
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
         background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
         color: var(--text);
         line-height: 1.5;
       }
 
-      /* header */
       .header {
-        display: flex; align-items: center; justify-content: space-between;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         padding: 20px clamp(16px, 4vw, 48px);
         background: linear-gradient(90deg, #1f6fff, #22c1ee);
         color: #fff;
       }
-      .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; }
-      .name { font-size: clamp(1.1rem, 2.2vw, 1.4rem); }
-      .back { color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+      }
+      .name {
+        font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+      }
+      .back {
+        color: #fff;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
 
-      .wrap { margin: 0 2%; }
-      .hero { margin: 16px 0 24px; text-align: center; }
-      .hero h1 { margin: 0; font-weight: 900; color: var(--primary-600); font-size: clamp(1.6rem, 3.5vw, 2.2rem); }
-      .hero p { margin: 6px 0 0; color: var(--muted); }
+      .wrap {
+        margin: 0 2%;
+      }
+      .hero {
+        margin: 16px 0 24px;
+        text-align: center;
+      }
+      .hero h1 {
+        margin: 0;
+        font-weight: 900;
+        color: var(--primary-600);
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      }
+      .hero p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
 
-      /* layout */
       .two-col {
-        display: grid; gap: 16px; grid-template-columns: 1fr;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
       }
       @media (min-width: 980px) {
-        .two-col { grid-template-columns: 0.8fr 1.2fr; } /* narrower form, wider schedule */
+        .two-col {
+          grid-template-columns: 0.8fr 1.2fr;
+        }
       }
 
       .card {
-        background: var(--card); border-radius: var(--radius-xl);
-        padding: 22px; box-shadow: var(--shadow);
+        background: var(--card);
+        border-radius: var(--radius-xl);
+        padding: 22px;
+        box-shadow: var(--shadow);
         border: 1px solid rgba(15, 23, 42, 0.06);
       }
 
-      form { display: grid; grid-template-columns: 1fr; gap: 16px; }
-      @media (min-width: 640px) { form { grid-template-columns: 1fr 1fr; } }
-      .field { display: flex; flex-direction: column; gap: 8px; }
-      .field.full { grid-column: 1 / -1; }
-      label { font-weight: 700; color: #0b2447; }
+      form {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 640px) {
+        form {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .field.full {
+        grid-column: 1 / -1;
+      }
+      label {
+        font-weight: 700;
+        color: #0b2447;
+      }
 
-      input, select {
-        appearance: none; -webkit-appearance: none;
-        padding: 12px 14px; border-radius: 12px;
+      input,
+      select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding: 12px 14px;
+        border-radius: 12px;
         border: 1px solid rgba(15, 23, 42, 0.12);
         background: linear-gradient(180deg, #fff, #f0f7ff);
-        outline: none; font-size: 1rem; color: var(--text);
-        transition: border-color .15s, box-shadow .15s;
+        outline: none;
+        font-size: 1rem;
+        color: var(--text);
+        transition: border-color 0.15s, box-shadow 0.15s;
       }
-      input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
+      input:focus,
+      select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--ring);
+      }
 
-      .actions { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
+      .actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 16px;
+      }
       .btn {
-        border: 0; padding: 12px 16px; border-radius: 12px;
-        font-weight: 800; cursor: pointer; box-shadow: 0 10px 24px rgba(2, 32, 71, 0.1);
-        transition: transform .1s, box-shadow .2s;
+        border: 0;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(2, 32, 71, 0.1);
+        transition: transform 0.1s, box-shadow 0.2s;
       }
-      .btn:active { transform: translateY(1px); }
-      .btn-primary { color: #fff; background: linear-gradient(135deg, var(--accent), var(--primary)); }
-      .btn-secondary { background: #eef4ff; color: var(--primary-600); border: 1px solid rgba(31, 111, 255, 0.25); }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+      }
+      .btn-secondary {
+        background: #eef4ff;
+        color: var(--primary-600);
+        border: 1px solid rgba(31, 111, 255, 0.25);
+      }
 
-      /* schedule table */
-      .sched-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-      .sched-title { font-weight: 900; color: #0b2447; }
-      .muted { color: var(--muted); font-size: .95rem; }
+      .sched-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .sched-title {
+        font-weight: 900;
+        color: #0b2447;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
       .table-wrap {
-        max-height: 480px; overflow: auto;
-        border: 1px solid rgba(15, 23, 42, 0.06); border-radius: 12px;
+        max-height: 480px;
+        overflow: auto;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 12px;
       }
-      table { width: 100%; border-collapse: collapse; font-size: .98rem; background: #fff; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        font-size: 0.5rem;
+      }
       thead th {
-        position: sticky; top: 0; z-index: 1;
-        background: #f0f7ff; color: #0b2447; text-align: left; font-weight: 800;
-        border-bottom: 1px solid rgba(15, 23, 42, 0.12); padding: 10px 12px;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f0f7ff;
+        color: #0b2447;
+        text-align: left;
+        font-weight: 800;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 10px 12px;
       }
-      tbody td { padding: 10px 12px; border-bottom: 1px solid rgba(15, 23, 42, 0.06); }
-      tbody tr:hover { background: #f8fbff; }
-      .empty-row td { text-align: center; color: var(--muted); }
+      tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      }
+      tbody tr:hover {
+        background: #f8fbff;
+      }
+      .empty-row td {
+        text-align: center;
+        color: var(--muted);
+      }
 
-      /* Comment column – readable textarea */
-      .th-comment { width: 34%; }
-      .comment-cell { min-width: 320px; }
+      .th-comment {
+        width: 34%;
+      }
+      .comment-cell {
+        min-width: 320px;
+      }
       .comment-input {
-        display: block; width: 80%; max-width: 100%;
-        min-height: 38px; line-height: 1.35; padding: 10px 12px;
-        font-size: 1rem; border-radius: 12px;
+        display: block;
+        width: 80%;
+        max-width: 100%;
+        min-height: 38px;
+        line-height: 1.35;
+        padding: 10px 12px;
+        font-size: 1rem;
+        border-radius: 12px;
         border: 1px solid rgba(15, 23, 42, 0.12);
-        background: linear-gradient(180deg, #ffffff, #f7fbff);
-        outline: none; resize: vertical; white-space: pre-wrap; word-break: break-word;
+        background: linear-gradient(180deg, #fff, #f7fbff);
+        outline: none;
+        resize: vertical;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
-      .comment-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+      .comment-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--ring);
+      }
 
-      /* toast */
-      .toast {
-        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-        background: #fff; border: 1px solid rgba(31, 111, 255, 0.2);
-        padding: 12px 16px; border-radius: 12px; box-shadow: var(--shadow); display: none;
+      /* Compact schedule */
+      .schedule-compact .sched-head {
+        margin-bottom: 6px;
       }
-      .toast.show { display: block; }
+      .schedule-compact .sched-title {
+        font-size: 0.95rem;
+      }
+      .schedule-compact .muted {
+        font-size: 0.82rem;
+      }
+      .schedule-compact .table-wrap {
+        max-height: 72vh;
+      }
+      .schedule-compact table {
+        font-size: 0.85rem;
+        line-height: 1.2;
+      }
+      .schedule-compact thead th {
+        padding: 6px 8px;
+        font-size: 0.85rem;
+      }
+      .schedule-compact tbody td {
+        padding: 6px 8px;
+      }
+      .schedule-compact thead th:first-child,
+      .schedule-compact tbody td:first-child {
+        white-space: nowrap;
+        width: 88px;
+      }
+      .schedule-compact .th-comment {
+        width: 26%;
+      }
+      .schedule-compact .comment-cell {
+        min-width: 220px;
+      }
+      .schedule-compact .comment-input {
+        width: 72%;
+        min-height: 26px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        border-radius: 8px;
+      }
+
+      /* NEW: small time input in table */
+      .time-input {
+        width: 88px;
+        padding: 4px 6px;
+        border-radius: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.15);
+        background: #fff;
+        font: inherit;
+      }
+      .time-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--ring);
+      }
     </style>
   </head>
   <body>
     <header class="header" role="banner">
       <div class="brand" aria-label="RMC Medical Center">
-        <img src="./assets/LogoCircle.png" alt="Logo" style="width:8%" />
+        <img src="./assets/LogoCircle.png" alt="Logo" style="width: 8%" />
         <span class="name">Ruwais Medical Center</span>
       </div>
       <a class="back" href="home.html" aria-label="Back to dashboard">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
         Back
       </a>
     </header>
@@ -145,7 +332,10 @@
     <main class="wrap" role="main">
       <section class="hero">
         <h1>Create Appointment</h1>
-        <p>Pick a doctor, a patient, and the date &amp; time. The right side shows that doctor’s schedule for the selected day.</p>
+        <p>
+          Pick a doctor, a patient, and the date &amp; time. The right side
+          shows that doctor’s schedule for the selected day.
+        </p>
       </section>
 
       <section class="two-col">
@@ -170,18 +360,27 @@
 
             <div class="field full">
               <label for="startAt">Date &amp; Time *</label>
-              <input id="startAt" name="startAt" type="datetime-local" required />
+              <input
+                id="startAt"
+                name="startAt"
+                type="datetime-local"
+                required
+              />
             </div>
 
             <div class="actions full">
-              <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
-              <button type="submit" class="btn btn-primary">Save Appointment</button>
+              <button type="button" class="btn btn-secondary" id="cancelBtn">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary">
+                Save Appointment
+              </button>
             </div>
           </form>
         </section>
 
-        <!-- Right: Schedule table -->
-        <section class="card" aria-label="Doctor day schedule">
+        <!-- Right: Schedule (compact + editable time) -->
+        <section class="card schedule-compact" aria-label="Doctor day schedule">
           <div class="sched-head">
             <div>
               <div class="sched-title">Doctor’s Schedule</div>
@@ -196,7 +395,9 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><!-- headers will be set via JS to add/remove Doctor column --></tr>
+                <tr>
+                  <!-- headers injected by JS -->
+                </tr>
               </thead>
               <tbody id="scheduleBody">
                 <tr class="empty-row">
@@ -211,18 +412,14 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <!-- Tom Select -->
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
-    <!-- App Script -->
     <script type="module">
-      if (sessionStorage.getItem('rmcAuth') !== '1') {
-    window.location.replace('index.html');
-  }
-      /* ---------- Searchable selects (Tom Select) ---------- */
-      let doctorTS, patientTS;
+      if (sessionStorage.getItem("rmcAuth") !== "1")
+        window.location.replace("index.html");
 
-      // Normalize phone to digits only (for search)
+      /* ---------- Tom Select ---------- */
+      let doctorTS, patientTS;
       const normalizePhone = (p) => (p || "").toString().replace(/\D/g, "");
       const fmtPhone = (p) => (p ?? "").toString().trim();
 
@@ -238,36 +435,40 @@
           maxOptions: 5000,
           plugins: ["clear_button"],
           onChange: () =>
-            document.getElementById("doctor").dispatchEvent(new Event("change")),
+            document
+              .getElementById("doctor")
+              .dispatchEvent(new Event("change")),
         });
       }
-
-      // Patient dropdown: visible "Name — Phone", value = id, SEARCHABLE ONLY BY PHONE
       function enhancePatientSelect() {
         if (!window.TomSelect) return;
         patientTS?.destroy();
         patientTS = new TomSelect("#patient", {
           create: false,
           allowEmptyOption: true,
-          searchField: ["phonekey"],   // <— only by normalized phone
+          searchField: ["phonekey"],
           sortField: { field: "text", direction: "asc" },
           maxOptions: 5000,
           plugins: ["clear_button"],
           placeholder: "Search by mobile number",
           render: {
-            option: (data, escape) => {
-              const phone = data.phone ? ` <small style="color:white">${escape(data.phone)}</small>` : "";
-              return `<div>${escape(data.text)}${phone}</div>`;
-            },
-            item: (data, escape) => {
-              const phone = data.phone ? ` <small style="color:white">${escape(data.phone)}</small>` : "";
-              return `<div>${escape(data.text)}${phone}</div>`;
-            }
-          }
+            option: (d, e) =>
+              `<div>${e(d.text)}${
+                d.phone
+                  ? ` <small style="color:white">${e(d.phone)}</small>`
+                  : ""
+              }</div>`,
+            item: (d, e) =>
+              `<div>${e(d.text)}${
+                d.phone
+                  ? ` <small style="color:white">${e(d.phone)}</small>`
+                  : ""
+              }</div>`,
+          },
         });
       }
 
-      /* ---------- Firebase v12 (modular) ---------- */
+      /* ---------- Firebase ---------- */
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import {
         initializeFirestore,
@@ -289,11 +490,13 @@
         messagingSenderId: "711840343507",
         appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
       };
-
       const app = initializeApp(firebaseConfig);
-      const db = initializeFirestore(app, { experimentalForceLongPolling: true, useFetchStreams: false });
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
 
-      /* ---------- DOM refs ---------- */
+      /* ---------- DOM ---------- */
       const form = document.getElementById("apptForm");
       const toast = document.getElementById("toast");
       const cancelBtn = document.getElementById("cancelBtn");
@@ -310,95 +513,103 @@
       const tableHeadRow = document.querySelector(".table-wrap thead tr");
 
       /* ---------- Helpers ---------- */
-      const showToast = (msg) => {
-        toast.textContent = msg;
+      const showToast = (m) => {
+        toast.textContent = m;
         toast.classList.add("show");
         clearTimeout(showToast._t);
         showToast._t = setTimeout(() => toast.classList.remove("show"), 2200);
       };
-      const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
-      const toJsDate = (v) => (v?.toDate ? v.toDate() : v instanceof Date ? v : new Date(v));
+      const byName = (a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        });
+      const toJsDate = (v) =>
+        v?.toDate ? v.toDate() : v instanceof Date ? v : new Date(v);
       const pad2 = (n) => String(n).padStart(2, "0");
-      const fmtTime = (d) => {
-        const h = d.getHours(), m = d.getMinutes();
+      const fmtTime12 = (d) => {
+        const h = d.getHours(),
+          m = d.getMinutes();
         const mer = h >= 12 ? "PM" : "AM";
         const hour12 = h % 12 || 12;
         return `${hour12}:${pad2(m)} ${mer}`;
       };
-      function dayBoundsFromLocal(dtLocal) {
-        if (!dtLocal) return [null, null];
-        const d = new Date(dtLocal);
-        return [
-          new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0),
-          new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0),
-        ];
-      }
+
+      // NEW: time helpers for editing (keep same date)
+      const timeHHMM = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+      const localYMD = (d) =>
+        `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      const setTimeOnDate = (d, hhmm) => {
+        const [h, m] = hhmm.split(":").map((n) => parseInt(n || "0", 10));
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
+      };
       const slotKeyFor = (doctorId, dtLocal) => `${doctorId}|${dtLocal}`;
 
-      // auto-grow textarea
       function autosize(el) {
         el.style.height = "auto";
-        const max = 180; // cap height
+        const max = 180;
         el.style.height = Math.min(max, el.scrollHeight) + "px";
       }
 
-      /* ---------- Data helpers ---------- */
+      /* ---------- Data ---------- */
       let patientsById = {};
-
       async function loadDoctors() {
-        const snap = await getDocs(collection(db, "doctors"));
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
+        const s = await getDocs(collection(db, "doctors"));
+        return s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
       }
       async function loadPatients() {
-        const snap = await getDocs(collection(db, "patients"));
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
+        const s = await getDocs(collection(db, "patients"));
+        return s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
       }
 
-      function fillDoctorSelect(selectEl, doctors) {
-        selectEl.innerHTML = "";
+      function fillDoctorSelect(sel, doctors) {
+        sel.innerHTML = "";
         const ph = document.createElement("option");
-        ph.value = ""; ph.disabled = true; ph.selected = true;
-        ph.textContent = doctors.length ? "Select a doctor" : "No doctors found";
-        selectEl.appendChild(ph);
-
+        ph.value = "";
+        ph.disabled = true;
+        ph.selected = true;
+        ph.textContent = doctors.length
+          ? "Select a doctor"
+          : "No doctors found";
+        sel.appendChild(ph);
         for (const d of doctors) {
-          const opt = document.createElement("option");
-          opt.value = d.id;
-          opt.textContent = d.name || "(no name)";
-          opt.dataset.name = d.name || "";
-          selectEl.appendChild(opt);
+          const o = document.createElement("option");
+          o.value = d.id;
+          o.textContent = d.name || "(no name)";
+          o.dataset.name = d.name || "";
+          sel.appendChild(o);
         }
-        selectEl.disabled = doctors.length === 0;
+        sel.disabled = doctors.length === 0;
       }
-
-      // Show "Name — Phone" to the user, keep value=id; attach data-phone + data-phonekey for phone-only search
-      function fillPatientSelect(selectEl, patients) {
-        selectEl.innerHTML = "";
+      function fillPatientSelect(sel, patients) {
+        sel.innerHTML = "";
         const ph = document.createElement("option");
-        ph.value = ""; ph.disabled = true; ph.selected = true;
+        ph.value = "";
+        ph.disabled = true;
+        ph.selected = true;
         ph.textContent = patients.length ? " " : "No patients found";
-        selectEl.appendChild(ph);
-
+        sel.appendChild(ph);
         for (const p of patients) {
-          const phone = fmtPhone(p.phone);
-          const phoneKey = normalizePhone(phone);
-          const opt = document.createElement("option");
-          opt.value = p.id; // unique ID
-          opt.textContent = `${p.name || "(no name)"}${phone ? " — " + phone : ""}`;
-          opt.dataset.name = p.name || "";
-          opt.dataset.phone = phone || "";
-          opt.dataset.phonekey = phoneKey || ""; // used for searching
-          opt.dataset.file = p.fileNumber ?? "";
-          selectEl.appendChild(opt);
+          const phone = (p.phone ?? "").trim();
+          const phoneKey = phone.replace(/\D/g, "");
+          const o = document.createElement("option");
+          o.value = p.id;
+          o.textContent = `${p.name || "(no name)"}${
+            phone ? " — " + phone : ""
+          }`;
+          o.dataset.name = p.name || "";
+          o.dataset.phone = phone || "";
+          o.dataset.phonekey = phoneKey || "";
+          o.dataset.file = p.fileNumber ?? "";
+          sel.appendChild(o);
         }
-        selectEl.disabled = patients.length === 0;
+        sel.disabled = patients.length === 0;
       }
 
       /* ---------- Table rendering ---------- */
       function setTableHeaders(showDoctorCol) {
         tableHeadRow.innerHTML = showDoctorCol
-          ? `<th style="width:120px">Time</th><th style="width:200px">Doctor</th><th>Patient</th><th style="width:110px">File #</th><th style="width:140px">Mobile</th><th class="th-comment">Comment</th>`
-          : `<th style="width:120px">Time</th><th>Patient</th><th style="width:110px">File #</th><th style="width:140px">Mobile</th><th class="th-comment">Comment</th>`;
+          ? `<th style="width:88px">Time</th><th style="width:180px">Doctor</th><th>Patient</th><th style="width:96px">File #</th><th style="width:120px">Mobile</th><th class="th-comment">Comment</th>`
+          : `<th style="width:88px">Time</th><th>Patient</th><th style="width:96px">File #</th><th style="width:120px">Mobile</th><th class="th-comment">Comment</th>`;
       }
 
       function attachCommentHandlers(inputEl, apptId) {
@@ -408,15 +619,60 @@
           e.target.title = e.target.value || "";
           saveCommentDebounced(apptId, e.target.value);
         });
-        inputEl.addEventListener("blur", (e) => {
-          saveCommentImmediate(apptId, e.target.value);
-        });
+        inputEl.addEventListener("blur", (e) =>
+          saveCommentImmediate(apptId, e.target.value)
+        );
         inputEl.addEventListener("keydown", (e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
             e.preventDefault();
-            inputEl.blur(); // triggers immediate save
+            inputEl.blur();
           }
         });
+      }
+
+      // NEW: time save (only time on same day)
+      async function saveTimeForAppointment(appt, newHHMM, inputEl) {
+        if (!/^\d{2}:\d{2}$/.test(newHHMM)) {
+          showToast("Invalid time");
+          inputEl.value = timeHHMM(toJsDate(appt.startAt));
+          return;
+        }
+
+        const oldDate = toJsDate(appt.startAt);
+        const newDate = setTimeOnDate(oldDate, newHHMM); // same Y/M/D, new H:M
+        const ymd = localYMD(oldDate); // date stays fixed
+        const dtLocal = `${ymd}T${newHHMM}`;
+        const newKey = slotKeyFor(appt.doctorId, dtLocal);
+
+        try {
+          // Conflict check (same doctor, same slot)
+          const dup = await getDocs(
+            query(
+              collection(db, "appointments"),
+              where("slotKey", "==", newKey)
+            )
+          );
+          const conflict = dup.docs.some((d) => d.id !== appt.id);
+          if (conflict) {
+            showToast("This doctor already has an appointment at that time.");
+            inputEl.value = timeHHMM(oldDate);
+            return;
+          }
+
+          await updateDoc(doc(db, "appointments", appt.id), {
+            startAt: newDate,
+            slotKey: newKey,
+            updatedAt: serverTimestamp(),
+          });
+
+          showToast("Time updated.");
+          // Refresh list so ordering reflects new time
+          refreshSchedule();
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to update time.");
+          inputEl.value = timeHHMM(oldDate);
+        }
       }
 
       function renderScheduleTable(appts, showDoctorCol) {
@@ -424,14 +680,17 @@
         if (!appts.length) {
           const tr = document.createElement("tr");
           tr.className = "empty-row";
-          tr.innerHTML = `<td colspan="${showDoctorCol ? 6 : 5}">No appointments for this day.</td>`;
+          tr.innerHTML = `<td colspan="${
+            showDoctorCol ? 6 : 5
+          }">No appointments for this day.</td>`;
           scheduleBody.appendChild(tr);
           return;
         }
 
         for (const a of appts) {
           const d = toJsDate(a.startAt);
-          const time = fmtTime(d);
+          const time12 = fmtTime12(d);
+          const time24 = timeHHMM(d);
           const p = patientsById[a.patientId] || {};
           const patientName = a.patientName || p.name || "(no name)";
           const fileNo = a.patientFileNumber ?? p.fileNumber ?? "—";
@@ -440,29 +699,39 @@
 
           const tr = document.createElement("tr");
           tr.innerHTML = showDoctorCol
-            ? `<td>${time}</td><td>${doctorName}</td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>
+            ? `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${doctorName}</td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>
                <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`
-            : `<td>${time}</td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>
+            : `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>
                <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`;
           scheduleBody.appendChild(tr);
 
-          const input = tr.querySelector(".comment-input");
-          input.value = (a.comment ?? "").toString();
-          input.title = input.value;
-          attachCommentHandlers(input, a.id);
+          // comment handlers
+          const cInput = tr.querySelector(".comment-input");
+          cInput.value = (a.comment ?? "").toString();
+          cInput.title = cInput.value;
+          attachCommentHandlers(cInput, a.id);
+
+          // time handlers (only edit time)
+          const tInput = tr.querySelector(".time-input");
+          tInput.addEventListener("change", () =>
+            saveTimeForAppointment(a, tInput.value, tInput)
+          );
+          tInput.addEventListener("blur", () =>
+            saveTimeForAppointment(a, tInput.value, tInput)
+          );
         }
       }
 
-      /* ---------- Comment saving (debounced) ---------- */
+      /* ---------- Comment save (debounced) ---------- */
       const _commentTimers = new Map();
-      function saveCommentDebounced(apptId, val) {
-        clearTimeout(_commentTimers.get(apptId));
-        const t = setTimeout(() => saveCommentImmediate(apptId, val), 400);
-        _commentTimers.set(apptId, t);
+      function saveCommentDebounced(id, val) {
+        clearTimeout(_commentTimers.get(id));
+        const t = setTimeout(() => saveCommentImmediate(id, val), 400);
+        _commentTimers.set(id, t);
       }
-      async function saveCommentImmediate(apptId, val) {
+      async function saveCommentImmediate(id, val) {
         try {
-          await updateDoc(doc(db, "appointments", apptId), {
+          await updateDoc(doc(db, "appointments", id), {
             comment: (val || "").trim() || null,
             updatedAt: serverTimestamp(),
           });
@@ -484,16 +753,35 @@
           setTableHeaders(!doctorId);
           schedDoctorName.textContent = doctorId ? doctorName : "—";
           schedDate.textContent = "Select date";
-          scheduleBody.innerHTML = `<tr class="empty-row"><td colspan="${doctorId ? 5 : 6}">Pick a date to view schedule.</td></tr>`;
+          scheduleBody.innerHTML = `<tr class="empty-row"><td colspan="${
+            doctorId ? 5 : 6
+          }">Pick a date to view schedule.</td></tr>`;
           schedCount.textContent = "0";
           return;
         }
 
-        const [dayStart, nextDay] = dayBoundsFromLocal(dtLocal);
+        const d = new Date(dtLocal);
+        const dayStart = new Date(
+          d.getFullYear(),
+          d.getMonth(),
+          d.getDate(),
+          0,
+          0,
+          0,
+          0
+        );
+        const nextDay = new Date(
+          d.getFullYear(),
+          d.getMonth(),
+          d.getDate() + 1,
+          0,
+          0,
+          0,
+          0
+        );
         schedDate.textContent = dtLocal.split("T")[0];
 
         if (!doctorId) {
-          // all doctors for selected date
           setTableHeaders(true);
           schedDoctorName.textContent = "All doctors";
           try {
@@ -505,7 +793,11 @@
               )
             );
             const appts = snap.docs
-              .map((d) => ({ id: d.id, ...d.data(), startAtJs: toJsDate(d.data().startAt) }))
+              .map((d) => ({
+                id: d.id,
+                ...d.data(),
+                startAtJs: toJsDate(d.data().startAt),
+              }))
               .sort((a, b) => a.startAtJs - b.startAtJs);
             schedCount.textContent = appts.length;
             renderScheduleTable(appts, true);
@@ -517,16 +809,25 @@
           return;
         }
 
-        // doctor-specific for date
         setTableHeaders(false);
         schedDoctorName.textContent = doctorName;
         try {
           const snap = await getDocs(
-            query(collection(db, "appointments"), where("doctorId", "==", doctorId))
+            query(
+              collection(db, "appointments"),
+              where("doctorId", "==", doctorId)
+            )
           );
           const appts = snap.docs
-            .map((d) => ({ id: d.id, ...d.data(), startAtJs: toJsDate(d.data().startAt) }))
-            .filter((a) => a.startAtJs && a.startAtJs >= dayStart && a.startAtJs < nextDay)
+            .map((d) => ({
+              id: d.id,
+              ...d.data(),
+              startAtJs: toJsDate(d.data().startAt),
+            }))
+            .filter(
+              (a) =>
+                a.startAtJs && a.startAtJs >= dayStart && a.startAtJs < nextDay
+            )
             .sort((a, b) => a.startAtJs - b.startAtJs);
           schedCount.textContent = appts.length;
           renderScheduleTable(appts, false);
@@ -537,22 +838,24 @@
         }
       }
 
-      /* ---------- Init lists ---------- */
+      /* ---------- Init ---------- */
       (async () => {
         try {
-          const [doctors, patients] = await Promise.all([loadDoctors(), loadPatients()]);
-
+          const [doctors, patients] = await Promise.all([
+            loadDoctors(),
+            loadPatients(),
+          ]);
           fillDoctorSelect(doctorSel, doctors);
           fillPatientSelect(patientSel, patients);
-
           patientsById = Object.fromEntries(patients.map((p) => [p.id, p]));
-
-          // Make dropdowns searchable
           enhanceDoctorSelect();
           enhancePatientSelect();
-
-          doctorHint.textContent = doctors.length ? `${doctors.length} doctor(s) available` : "Add doctors first.";
-          patientHint.textContent = patients.length ? `${patients.length} patient(s) available` : "Add patients first.";
+          doctorHint.textContent = doctors.length
+            ? `${doctors.length} doctor(s) available`
+            : "Add doctors first.";
+          patientHint.textContent = patients.length
+            ? `${patients.length} patient(s) available`
+            : "Add patients first.";
         } catch (e) {
           console.error(e);
           showToast("Error loading lists. Check console.");
@@ -563,12 +866,11 @@
       doctorSel.addEventListener("change", refreshSchedule);
       startAtEl.addEventListener("change", refreshSchedule);
       startAtEl.addEventListener("input", refreshSchedule);
-
       cancelBtn.addEventListener("click", () => {
         if (confirm("Discard changes?")) window.location.href = "home.html";
       });
 
-      /* ---------- Save appointment ---------- */
+      /* ---------- Save new appointment ---------- */
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!form.checkValidity()) {
@@ -595,7 +897,9 @@
 
         try {
           const key = slotKeyFor(doctorId, dtLocal);
-          const dup = await getDocs(query(collection(db, "appointments"), where("slotKey", "==", key)));
+          const dup = await getDocs(
+            query(collection(db, "appointments"), where("slotKey", "==", key))
+          );
           if (!dup.empty) {
             showToast("This doctor already has an appointment at that time.");
             return;
@@ -610,7 +914,6 @@
             startAt: new Date(dtLocal),
             slotKey: key,
             createdAt: serverTimestamp(),
-            // denormalized patient fields for quick reads
             patientFileNumber: p.fileNumber ?? null,
             patientPhone: p.phone ?? null,
             comment: null,
