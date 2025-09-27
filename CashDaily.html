@@ -64,99 +64,126 @@
   </main>
 
   <script type="module">
-
-    if (sessionStorage.getItem('rmcAuth') !== '1') {
+  // Optional: keep your own session check
+  if (sessionStorage.getItem('rmcAuth') !== '1') {
     window.location.replace('index.html');
   }
 
-  
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-    import { initializeFirestore, collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  // ---------- Firebase ----------
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import {
+    initializeFirestore, collection, getDocs, query, where, orderBy
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
-      authDomain: "rmc-db-486f0.firebaseapp.com",
-      projectId: "rmc-db-486f0",
-      storageBucket: "rmc-db-486f0.firebasestorage.app",
-      messagingSenderId: "711840343507",
-      appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = initializeFirestore(app, { experimentalForceLongPolling:true, useFetchStreams:false });
+  const firebaseConfig = {
+    apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+    authDomain: "rmc-db-486f0.firebaseapp.com",
+    projectId: "rmc-db-486f0",
+    storageBucket: "rmc-db-486f0.firebasestorage.app",
+    messagingSenderId: "711840343507",
+    appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+  };
 
-    const dayEl = document.getElementById('day');
-    const rows = document.getElementById('rows');
-    const sumInEl = document.getElementById('sumIn');
-    const sumOutEl = document.getElementById('sumOut');
-    const sumNetEl = document.getElementById('sumNet');
+  const app = initializeApp(firebaseConfig);
+  const db  = initializeFirestore(app, { experimentalForceLongPolling:true, useFetchStreams:false });
+  const auth = getAuth(app);
 
-    const fmtAmt = (n)=> (n<0?'-':'') + Math.abs(n).toFixed(2);
-    const fmtDT  = (d)=> {
-      const pad2=(x)=>String(x).padStart(2,'0');
-      const mer = d.getHours()>=12?'PM':'AM';
-      const hh = d.getHours()%12 || 12;
-      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${hh}:${pad2(d.getMinutes())} ${mer}`;
-    };
-    const todayISO = ()=> { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-    function dayBounds(dateStr){
-      const d = new Date(dateStr);
-      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0);
-      const end   = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, 0,0,0,0);
-      return [start, end];
+  // ---------- DOM ----------
+  const dayEl    = document.getElementById('day');
+  const rows     = document.getElementById('rows');
+  const sumInEl  = document.getElementById('sumIn');
+  const sumOutEl = document.getElementById('sumOut');
+  const sumNetEl = document.getElementById('sumNet');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  // ---------- Utils ----------
+  const fmtAmt = (n)=> (n<0?'-':'') + Math.abs(n).toFixed(2);
+  const fmtDT  = (d)=> {
+    const pad2=(x)=>String(x).padStart(2,'0');
+    const mer = d.getHours()>=12?'PM':'AM';
+    const hh = d.getHours()%12 || 12;
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${hh}:${pad2(d.getMinutes())} ${mer}`;
+  };
+  const todayISO = ()=> {
+    const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  function dayBounds(dateStr){
+    const d = new Date(dateStr);
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0);
+    const end   = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, 0,0,0,0);
+    return [start, end];
+  }
+
+  // ---------- Data ----------
+  async function refresh(){
+    const dateStr = dayEl.value;
+    if (!dateStr) return;
+
+    const [start, end] = dayBounds(dateStr);
+
+    // NOTE: range filter + orderBy on the same field is required (done here)
+    const snap = await getDocs(query(
+      collection(db, 'cash'),
+      where('date','>=', start),
+      where('date','<',  end),
+      orderBy('date','asc')
+    ));
+
+    const data = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    // totals
+    let sumIn=0, sumOut=0, net=0;
+    data.forEach(x=>{
+      if (x.type==='in')  sumIn  += Number(x.amount||0);
+      if (x.type==='out') sumOut += Number(x.amount||0);
+      net += Number(x.signedAmount|| (x.type==='out' ? -Math.abs(x.amount||0) : Math.abs(x.amount||0)));
+    });
+    sumInEl.textContent  = fmtAmt(sumIn);
+    sumOutEl.textContent = fmtAmt(sumOut);
+    sumNetEl.textContent = fmtAmt(net);
+
+    // rows
+    rows.innerHTML = '';
+    if (!data.length){
+      rows.innerHTML = `<tr><td colspan="6" class="empty">No entries</td></tr>`;
+      return;
     }
-
-    async function refresh(){
-      const dateStr = dayEl.value;
-      if (!dateStr) return;
-
-      const [start, end] = dayBounds(dateStr);
-      const snap = await getDocs(query(
-        collection(db, 'cash'),
-        where('date','>=', start),
-        where('date','<', end),
-        orderBy('date','asc')
-      ));
-
-      const data = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      // totals
-      let sumIn=0, sumOut=0, net=0;
-      data.forEach(x=>{
-        if (x.type==='in') sumIn += Number(x.amount||0);
-        else if (x.type==='out') sumOut += Number(x.amount||0);
-        net += Number(x.signedAmount||0);
-      });
-      sumInEl.textContent = fmtAmt(sumIn);
-      sumOutEl.textContent = fmtAmt(sumOut);
-      sumNetEl.textContent = fmtAmt(net);
-
-      // rows
-      rows.innerHTML = '';
-      if (!data.length){
-        rows.innerHTML = `<tr><td colspan="6" class="empty">No entries</td></tr>`;
-        return;
-      }
-      for (const x of data){
-        const d = x.date?.toDate ? x.date.toDate() : new Date(x.date);
-        const amt = (x.type==='out' ? -Math.abs(x.amount||0) : Math.abs(x.amount||0));
-        rows.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td>${fmtDT(d)}</td>
-            <td>${x.patientName || ''}</td>
-            <td>${x.doctorName || ''}</td>
-            <td>${x.medicalAct || ''}</td>
-            <td>${x.type==='in' ? '<span class="in">IN</span>' : '<span class="out">OUT</span>'}</td>
-            <td class="${amt<0?'out':'in'}" style="font-weight:800">${fmtAmt(amt)}</td>
-          </tr>
-        `);
-      }
+    for (const x of data){
+      const d = x.date?.toDate ? x.date.toDate() : new Date(x.date);
+      const amt = (x.type==='out' ? -Math.abs(x.amount||0) : Math.abs(x.amount||0));
+      rows.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td>${fmtDT(d)}</td>
+          <td>${x.patientName || ''}</td>
+          <td>${x.doctorName || ''}</td>
+          <td>${x.medicalAct || ''}</td>
+          <td>${x.type==='in' ? '<span class="in">IN</span>' : '<span class="out">OUT</span>'}</td>
+          <td class="${amt<0?'out':'in'}" style="font-weight:800">${fmtAmt(amt)}</td>
+        </tr>
+      `);
     }
+  }
 
-    // init
-    dayEl.value = todayISO();
-    document.getElementById('refreshBtn').addEventListener('click', refresh);
-    dayEl.addEventListener('change', refresh);
-    refresh();
+  // ---------- Auth gate then init ----------
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) { await signInAnonymously(auth); return; } // will fire again with user
 
-  </script>
+      // only run init once we have auth
+      dayEl.value = todayISO();
+      refreshBtn.addEventListener('click', refresh);
+      dayEl.addEventListener('change', refresh);
+      await refresh();
+
+    } catch (e) {
+      console.error(e);
+      alert(`Auth failed: ${e.code || e.message}`);
+    }
+  });
+</script>
+
 </body>
 </html>

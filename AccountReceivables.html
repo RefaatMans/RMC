@@ -83,10 +83,10 @@
       tbody tr:hover { background: #f6faff; }
       .right { text-align: right; }
 
-      /* input inside table cell for editable Paid */
+      /* input inside table cell for editable Paid/Lab */
       .cell-input {
         width: 100%;
-        max-width: 90px;          /* fits the Paid column */
+        max-width: 90px;
         padding: 4px 6px;
         border-radius: 8px;
         border: 1px solid rgba(15,23,42,.12);
@@ -225,227 +225,213 @@
       </div>
     </div>
 
-    <script type="module">
-      // session guard
-      if (sessionStorage.getItem("rmcAuth") !== "1") {
-        window.location.replace("index.html");
-      }
+  <script type="module">
+  // Gate to your own session flag
+  if (sessionStorage.getItem("rmcAuth") !== "1") {
+    window.location.replace("index.html");
+  }
 
-      // Firebase
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-      import {
-        initializeFirestore,
-        collection,
-        addDoc,
-        getDocs,
-        query,
-        orderBy,
-        serverTimestamp,
-        updateDoc,
-        doc,
-      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  // Firebase SDKs
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import {
+    initializeFirestore, collection, addDoc, getDocs,
+    query, orderBy, serverTimestamp, updateDoc, doc
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
-        authDomain: "rmc-db-486f0.firebaseapp.com",
-        projectId: "rmc-db-486f0",
-        storageBucket: "rmc-db-486f0.firebasestorage.app",
-        messagingSenderId: "711840343507",
-        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
-      };
+  // ---- CONFIG ----
+  const firebaseConfig = {
+    apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+    authDomain: "rmc-db-486f0.firebaseapp.com",
+    projectId: "rmc-db-486f0",
+    storageBucket: "rmc-db-486f0.firebasestorage.app",
+    messagingSenderId: "711840343507",
+    appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+  };
 
-      const app = initializeApp(firebaseConfig);
-      const db = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        useFetchStreams: false,
-      });
+  // ---- INIT ----
+  const app = initializeApp(firebaseConfig);
+  const db  = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    useFetchStreams: false,
+  });
+  const auth = getAuth(app);
 
-      // DOM
-      const modal = document.getElementById("modal");
-      const form = document.getElementById("recForm");
-      const bodyRows = document.getElementById("bodyRows");
-      const recCount = document.getElementById("recCount");
+  // ---- DOM refs ----
+  const modal = document.getElementById("modal");
+  const form = document.getElementById("recForm");
+  const bodyRows = document.getElementById("bodyRows");
+  const recCount = document.getElementById("recCount");
+  const dateEl = document.getElementById("date");
+  const patientEl = document.getElementById("patient");
+  const doctorEl = document.getElementById("doctor");
+  const amountEl = document.getElementById("amount");
+  const paidEl = document.getElementById("paid");
+  const labEl = document.getElementById("lab");
+  const preview = document.getElementById("preview");
 
-      const dateEl = document.getElementById("date");
-      const patientEl = document.getElementById("patient");
-      const doctorEl = document.getElementById("doctor");
-      const amountEl = document.getElementById("amount");
-      const paidEl = document.getElementById("paid");
-      const labEl = document.getElementById("lab");
-      const preview = document.getElementById("preview");
+  document.getElementById("btnNew").onclick = () => openModal();
+  document.getElementById("btnCancel").onclick = () => closeModal();
 
-      document.getElementById("btnNew").onclick = () => openModal();
-      document.getElementById("btnCancel").onclick = () => closeModal();
+  // ---- helpers ----
+  const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const toDate = (yyyy_mm_dd) => {
+    const [y, m, d] = (yyyy_mm_dd || "").split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+  };
 
-      // helpers
-      const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-      const toDate = (yyyy_mm_dd) => {
-        const [y, m, d] = (yyyy_mm_dd || "").split("-").map(Number);
-        return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
-      };
+  function openModal() {
+    dateEl.value = new Date().toISOString().slice(0, 10);
+    amountEl.value = ""; paidEl.value = ""; labEl.value = "";
+    patientEl.value = ""; doctorEl.value = ""; updatePreview();
+    modal.classList.add("show"); document.body.style.overflow = "hidden"; patientEl.focus();
+  }
+  function closeModal() { modal.classList.remove("show"); document.body.style.overflow = ""; }
 
-      function openModal() {
-        dateEl.value = new Date().toISOString().slice(0, 10);
-        amountEl.value = "";
-        paidEl.value   = "";
-        labEl.value    = "";
-        patientEl.value = "";
-        doctorEl.value  = "";
-        updatePreview();
-        modal.classList.add("show");
-        document.body.style.overflow = "hidden";
-        patientEl.focus();
-      }
-      function closeModal() {
-        modal.classList.remove("show");
-        document.body.style.overflow = "";
-      }
+  function updatePreview() {
+    const amt = Number(amountEl.value || 0);
+    const paid = Number(paidEl.value || 0);
+    const lab  = Number(labEl.value || 0);
+    const remaining = Math.max(0, amt - paid);
+    const splitBase = Math.max(0, amt - lab);
+    const d40 = splitBase * 0.4, c60 = splitBase * 0.6;
+    preview.textContent = `Remaining: ${fmt(remaining)} • Doctor 40%: ${fmt(d40)} • Center 60%: ${fmt(c60)}`;
+  }
+  labEl.addEventListener("input", updatePreview);
+  amountEl.addEventListener("input", updatePreview);
+  paidEl.addEventListener("input", updatePreview);
 
-      function updatePreview() {
-        const amt = Number(amountEl.value || 0);
-        const paid = Number(paidEl.value || 0);
-        const lab  = Number(labEl.value || 0);
+  // ---- Firestore ops ----
+  async function loadReceivables() {
+    const snap = await getDocs(
+      query(collection(db, "receivables"), orderBy("date", "desc"), orderBy("createdAt", "desc"))
+    );
+    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render(rows);
+  }
 
-        const remaining = Math.max(0, amt - paid);
-        const splitBase = Math.max(0, amt - lab); // AFTER lab
-        const d40 = splitBase * 0.4;
-        const c60 = splitBase * 0.6;
+  function render(rows) {
+    bodyRows.innerHTML = ""; if(recCount) recCount.textContent = rows.length;
+    if (!rows.length) {
+      bodyRows.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center">No data yet.</td></tr>`;
+      return;
+    }
+    for (const r of rows) {
+      const amt=+r.amount||0, paid=+r.paid||0, lab=+r.lab||0;
+      const rem=Math.max(0,amt-paid), splitBase=Math.max(0,amt-lab), d40=splitBase*0.4, c60=splitBase*0.6;
+      const dt = r.date?.toDate ? r.date.toDate() : (r.date instanceof Date ? r.date : new Date(r.date));
+      const dstr = isNaN(dt) ? "" : dt.toISOString().slice(0,10);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${dstr}</td>
+        <td>${r.patient||"—"}</td>
+        <td>${r.doctor||"—"}</td>
+        <td class="right">${fmt(amt)}</td>
 
-        preview.textContent =
-          `Remaining: ${fmt(remaining)} • Doctor 40%: ${fmt(d40)} • Center 60%: ${fmt(c60)}`;
-      }
-      labEl.addEventListener("input", updatePreview);
-      amountEl.addEventListener("input", updatePreview);
-      paidEl.addEventListener("input", updatePreview);
+        <td class="right">
+          <input class="cell-input paid-input" type="number" step="0.01" min="0"
+            value="${paid}" data-id="${r.id}" data-amount="${amt}" aria-label="Paid amount">
+        </td>
 
-      // load & render
-      async function loadReceivables() {
-        const snap = await getDocs(
-          query(
-            collection(db, "receivables"),
-            orderBy("date", "desc"),
-            orderBy("createdAt", "desc")
-          )
-        );
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        render(rows);
-      }
+        <td class="right">${fmt(rem)}</td>
 
-      function render(rows) {
-        bodyRows.innerHTML = "";
-        recCount.textContent = rows.length;
+        <td class="right">
+          <input class="cell-input lab-input" type="number" step="0.01" min="0"
+            value="${lab}" data-id="${r.id}" data-amount="${amt}" aria-label="Lab amount">
+        </td>
 
-        if (!rows.length) {
-          bodyRows.innerHTML =
-            `<tr><td colspan="9" class="muted" style="text-align:center">No data yet.</td></tr>`;
-          return;
-        }
+        <td class="right">${fmt(d40)}</td>
+        <td class="right">${fmt(c60)}</td>`;
+      bodyRows.appendChild(tr);
 
-        for (const r of rows) {
-          const amt  = Number(r.amount || 0);
-          const paid = Number(r.paid || 0);
-          const lab  = Number(r.lab || 0);
+      // Paid handlers
+      const paidInput = tr.querySelector(".paid-input");
+      paidInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); paidInput.blur(); }});
+      paidInput.addEventListener("change", () => savePaid(paidInput));
+      paidInput.addEventListener("blur",   () => savePaid(paidInput));
 
-          const rem       = Math.max(0, amt - paid);
-          const splitBase = Math.max(0, amt - lab);
-          const d40 = splitBase * 0.4;
-          const c60 = splitBase * 0.6;
+      // Lab handlers
+      const labInput = tr.querySelector(".lab-input");
+      labInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); labInput.blur(); }});
+      labInput.addEventListener("change", () => saveLab(labInput));
+      labInput.addEventListener("blur",   () => saveLab(labInput));
+    }
+  }
 
-          const dt = r.date?.toDate ? r.date.toDate()
-                   : r.date instanceof Date ? r.date
-                   : new Date(r.date);
-          const dstr = isNaN(dt) ? "" : dt.toISOString().slice(0, 10);
+  async function savePaid(input) {
+    if (!input || input.disabled) return;
+    const id = input.dataset.id;
+    let newVal = Number(input.value || 0);
+    if (!isFinite(newVal) || newVal < 0) newVal = 0;
+    const maxAmount = Number(input.dataset.amount || Infinity);
+    if (isFinite(maxAmount)) newVal = Math.min(newVal, maxAmount);
+    const current = Number(input.getAttribute("value") || 0);
+    if (Math.abs(newVal - current) < 0.0001) return;
 
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${dstr}</td>
-            <td>${r.patient || "—"}</td>
-            <td>${r.doctor || "—"}</td>
-            <td class="right">${fmt(amt)}</td>
-            <td class="right">
-              <input class="cell-input paid-input" type="number" step="0.01" min="0"
-                     value="${paid}" data-id="${r.id}" data-amount="${amt}" aria-label="Paid amount">
-            </td>
-            <td class="right">${fmt(rem)}</td>
-            <td class="right">${fmt(lab)}</td>
-            <td class="right">${fmt(d40)}</td>
-            <td class="right">${fmt(c60)}</td>
-          `;
-          bodyRows.appendChild(tr);
+    input.disabled = true;
+    try {
+      await updateDoc(doc(db, "receivables", id), { paid: newVal, updatedAt: serverTimestamp() });
+      input.setAttribute("value", String(newVal));
+      await loadReceivables();
+    } catch (err) {
+      console.error(err); alert("Failed to update paid amount."); input.value = current;
+    } finally { input.disabled = false; }
+  }
 
-          // attach inline editor handlers for Paid
-          const input = tr.querySelector(".paid-input");
-          input.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") { e.preventDefault(); input.blur(); }
-          });
-          input.addEventListener("change", () => savePaid(input));
-          input.addEventListener("blur",   () => savePaid(input));
-        }
-      }
+  async function saveLab(input) {
+    if (!input || input.disabled) return;
+    const id = input.dataset.id;
+    let newVal = Number(input.value || 0);
+    if (!isFinite(newVal) || newVal < 0) newVal = 0;
 
-      async function savePaid(input) {
-        if (!input || input.disabled) return;
-        const id = input.dataset.id;
-        let newVal = Number(input.value || 0);
-        if (!isFinite(newVal) || newVal < 0) newVal = 0;
+    // Optional: clamp Lab to not exceed Amount
+    const maxAmount = Number(input.dataset.amount || Infinity);
+    if (isFinite(maxAmount)) newVal = Math.min(newVal, maxAmount);
 
-        // optional: clamp to amount so paid doesn't exceed total
-        const maxAmount = Number(input.dataset.amount || Infinity);
-        if (isFinite(maxAmount)) newVal = Math.min(newVal, maxAmount);
+    const current = Number(input.getAttribute("value") || 0);
+    if (Math.abs(newVal - current) < 0.0001) return;
 
-        // Avoid unnecessary writes if unchanged (allowing minor float diff)
-        const current = Number(input.getAttribute("value") || 0);
-        if (Math.abs(newVal - current) < 0.0001) return;
+    input.disabled = true;
+    try {
+      await updateDoc(doc(db, "receivables", id), { lab: newVal, updatedAt: serverTimestamp() });
+      input.setAttribute("value", String(newVal));
+      await loadReceivables(); // refresh to recalc 40%/60%
+    } catch (err) {
+      console.error(err); alert("Failed to update lab amount."); input.value = current;
+    } finally { input.disabled = false; }
+  }
 
-        input.disabled = true;
-        try {
-          await updateDoc(doc(db, "receivables", id), {
-            paid: newVal,
-            updatedAt: serverTimestamp(),
-          });
-          // Keep the field's attribute in sync so further edits compare correctly
-          input.setAttribute("value", String(newVal));
-          // Re-render to recompute Remaining and totals
-          await loadReceivables();
-        } catch (err) {
-          console.error(err);
-          alert("Failed to update paid amount.");
-          input.value = current;
-        } finally {
-          input.disabled = false;
-        }
-      }
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) return form.reportValidity();
+    const payload = {
+      date: toDate(document.getElementById("date").value),
+      patient: (document.getElementById("patient").value || "").trim(),
+      doctor:  (document.getElementById("doctor").value  || "").trim(),
+      amount:  Number(document.getElementById("amount").value || 0),
+      paid:    Number(document.getElementById("paid").value   || 0),
+      lab:     Number(document.getElementById("lab").value    || 0),
+      createdAt: serverTimestamp(),
+    };
+    try {
+      await addDoc(collection(db, "receivables"), payload);
+      closeModal(); await loadReceivables();
+    } catch (err) { console.error(err); alert("Failed to save. Check console."); }
+  });
 
-      // save new record
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!form.checkValidity()) {
-          form.reportValidity();
-          return;
-        }
+  // ---- AUTH then load ----
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) await signInAnonymously(auth); // silent sign-in
+      await loadReceivables();                   // only hit Firestore after auth
+    } catch (e) {
+      console.error(e);
+      alert("Authentication failed; Firestore is protected by rules.");
+    }
+  });
+</script>
 
-        const payload = {
-          date: toDate(dateEl.value),
-          patient: (patientEl.value || "").trim(),
-          doctor: (doctorEl.value || "").trim(),
-          amount: Number(amountEl.value || 0),
-          paid: Number(paidEl.value || 0),
-          lab: Number(labEl.value || 0),
-          createdAt: serverTimestamp(),
-        };
-
-        try {
-          await addDoc(collection(db, "receivables"), payload);
-          closeModal();
-          await loadReceivables();
-        } catch (err) {
-          console.error(err);
-          alert("Failed to save. Check console.");
-        }
-      });
-
-      // init
-      loadReceivables();
-    </script>
   </body>
 </html>

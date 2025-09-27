@@ -415,8 +415,10 @@
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
     <script type="module">
-      if (sessionStorage.getItem("rmcAuth") !== "1")
+      // Optional: your own session gate
+      if (sessionStorage.getItem("rmcAuth") !== "1") {
         window.location.replace("index.html");
+      }
 
       /* ---------- Tom Select ---------- */
       let doctorTS, patientTS;
@@ -446,7 +448,7 @@
         patientTS = new TomSelect("#patient", {
           create: false,
           allowEmptyOption: true,
-          searchField: ["phonekey"],
+          searchField: ["text", "phonekey"],
           sortField: { field: "text", direction: "asc" },
           maxOptions: 5000,
           plugins: ["clear_button"],
@@ -480,7 +482,13 @@
         serverTimestamp,
         doc,
         updateDoc,
+        orderBy,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
@@ -495,6 +503,11 @@
         experimentalForceLongPolling: true,
         useFetchStreams: false,
       });
+      const auth = getAuth(app);
+
+      const ensureAuthed = async () => {
+        if (!auth.currentUser) await signInAnonymously(auth);
+      };
 
       /* ---------- DOM ---------- */
       const form = document.getElementById("apptForm");
@@ -534,7 +547,7 @@
         return `${hour12}:${pad2(m)} ${mer}`;
       };
 
-      // NEW: time helpers for editing (keep same date)
+      // time helpers
       const timeHHMM = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
       const localYMD = (d) =>
         `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -630,22 +643,21 @@
         });
       }
 
-      // NEW: time save (only time on same day)
+      // update time (same date)
       async function saveTimeForAppointment(appt, newHHMM, inputEl) {
+        await ensureAuthed();
         if (!/^\d{2}:\d{2}$/.test(newHHMM)) {
           showToast("Invalid time");
           inputEl.value = timeHHMM(toJsDate(appt.startAt));
           return;
         }
-
         const oldDate = toJsDate(appt.startAt);
-        const newDate = setTimeOnDate(oldDate, newHHMM); // same Y/M/D, new H:M
-        const ymd = localYMD(oldDate); // date stays fixed
+        const newDate = setTimeOnDate(oldDate, newHHMM);
+        const ymd = localYMD(oldDate);
         const dtLocal = `${ymd}T${newHHMM}`;
         const newKey = slotKeyFor(appt.doctorId, dtLocal);
 
         try {
-          // Conflict check (same doctor, same slot)
           const dup = await getDocs(
             query(
               collection(db, "appointments"),
@@ -658,15 +670,12 @@
             inputEl.value = timeHHMM(oldDate);
             return;
           }
-
           await updateDoc(doc(db, "appointments", appt.id), {
             startAt: newDate,
             slotKey: newKey,
             updatedAt: serverTimestamp(),
           });
-
           showToast("Time updated.");
-          // Refresh list so ordering reflects new time
           refreshSchedule();
         } catch (err) {
           console.error(err);
@@ -700,18 +709,16 @@
           const tr = document.createElement("tr");
           tr.innerHTML = showDoctorCol
             ? `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${doctorName}</td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>
-               <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`
+           <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`
             : `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>
-               <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`;
+           <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`;
           scheduleBody.appendChild(tr);
 
-          // comment handlers
           const cInput = tr.querySelector(".comment-input");
           cInput.value = (a.comment ?? "").toString();
           cInput.title = cInput.value;
           attachCommentHandlers(cInput, a.id);
 
-          // time handlers (only edit time)
           const tInput = tr.querySelector(".time-input");
           tInput.addEventListener("change", () =>
             saveTimeForAppointment(a, tInput.value, tInput)
@@ -731,6 +738,7 @@
       }
       async function saveCommentImmediate(id, val) {
         try {
+          await ensureAuthed();
           await updateDoc(doc(db, "appointments", id), {
             comment: (val || "").trim() || null,
             updatedAt: serverTimestamp(),
@@ -781,37 +789,31 @@
         );
         schedDate.textContent = dtLocal.split("T")[0];
 
-        if (!doctorId) {
-          setTableHeaders(true);
-          schedDoctorName.textContent = "All doctors";
-          try {
+        try {
+          await ensureAuthed();
+          if (!doctorId) {
+            setTableHeaders(true);
+            schedDoctorName.textContent = "All doctors";
             const snap = await getDocs(
               query(
                 collection(db, "appointments"),
                 where("startAt", ">=", dayStart),
-                where("startAt", "<", nextDay)
+                where("startAt", "<", nextDay),
+                orderBy("startAt", "asc") // safe single-field index
               )
             );
-            const appts = snap.docs
-              .map((d) => ({
-                id: d.id,
-                ...d.data(),
-                startAtJs: toJsDate(d.data().startAt),
-              }))
-              .sort((a, b) => a.startAtJs - b.startAtJs);
+            const appts = snap.docs.map((d) => ({
+              id: d.id,
+              ...d.data(),
+              startAtJs: toJsDate(d.data().startAt),
+            }));
             schedCount.textContent = appts.length;
             renderScheduleTable(appts, true);
-          } catch (e) {
-            console.error(e);
-            scheduleBody.innerHTML = `<tr class="empty-row"><td colspan="6">Couldn't load schedule.</td></tr>`;
-            schedCount.textContent = "0";
+            return;
           }
-          return;
-        }
 
-        setTableHeaders(false);
-        schedDoctorName.textContent = doctorName;
-        try {
+          setTableHeaders(false);
+          schedDoctorName.textContent = doctorName;
           const snap = await getDocs(
             query(
               collection(db, "appointments"),
@@ -833,45 +835,15 @@
           renderScheduleTable(appts, false);
         } catch (e) {
           console.error(e);
-          scheduleBody.innerHTML = `<tr class="empty-row"><td colspan="5">Couldn't load schedule.</td></tr>`;
+          scheduleBody.innerHTML = `<tr class="empty-row"><td colspan="${
+            doctorId ? 5 : 6
+          }">Couldn't load schedule.</td></tr>`;
           schedCount.textContent = "0";
         }
       }
 
-      /* ---------- Init ---------- */
-      (async () => {
-        try {
-          const [doctors, patients] = await Promise.all([
-            loadDoctors(),
-            loadPatients(),
-          ]);
-          fillDoctorSelect(doctorSel, doctors);
-          fillPatientSelect(patientSel, patients);
-          patientsById = Object.fromEntries(patients.map((p) => [p.id, p]));
-          enhanceDoctorSelect();
-          enhancePatientSelect();
-          doctorHint.textContent = doctors.length
-            ? `${doctors.length} doctor(s) available`
-            : "Add doctors first.";
-          patientHint.textContent = patients.length
-            ? `${patients.length} patient(s) available`
-            : "Add patients first.";
-        } catch (e) {
-          console.error(e);
-          showToast("Error loading lists. Check console.");
-        }
-      })();
-
-      /* ---------- Events ---------- */
-      doctorSel.addEventListener("change", refreshSchedule);
-      startAtEl.addEventListener("change", refreshSchedule);
-      startAtEl.addEventListener("input", refreshSchedule);
-      cancelBtn.addEventListener("click", () => {
-        if (confirm("Discard changes?")) window.location.href = "home.html";
-      });
-
       /* ---------- Save new appointment ---------- */
-      form.addEventListener("submit", async (e) => {
+      async function saveAppointment(e) {
         e.preventDefault();
         if (!form.checkValidity()) {
           form.reportValidity();
@@ -896,6 +868,7 @@
         }
 
         try {
+          await ensureAuthed();
           const key = slotKeyFor(doctorId, dtLocal);
           const dup = await getDocs(
             query(collection(db, "appointments"), where("slotKey", "==", key))
@@ -914,6 +887,7 @@
             startAt: new Date(dtLocal),
             slotKey: key,
             createdAt: serverTimestamp(),
+            createdBy: auth.currentUser?.uid || null,
             patientFileNumber: p.fileNumber ?? null,
             patientPhone: p.phone ?? null,
             comment: null,
@@ -927,6 +901,44 @@
         } catch (err) {
           console.error(err);
           showToast("Error saving appointment.");
+        }
+      }
+
+      /* ---------- Wire events (after auth) ---------- */
+      cancelBtn.addEventListener("click", () => {
+        if (confirm("Discard changes?")) window.location.href = "home.html";
+      });
+      form.addEventListener("submit", saveAppointment);
+      doctorSel.addEventListener("change", refreshSchedule);
+      startAtEl.addEventListener("change", refreshSchedule);
+      startAtEl.addEventListener("input", refreshSchedule);
+
+      /* ---------- Auth gate then init ---------- */
+      onAuthStateChanged(auth, async (user) => {
+        try {
+          if (!user) {
+            await signInAnonymously(auth);
+            return;
+          } // will fire again with user
+          // Only hit Firestore once authenticated
+          const [doctors, patients] = await Promise.all([
+            loadDoctors(),
+            loadPatients(),
+          ]);
+          fillDoctorSelect(doctorSel, doctors);
+          fillPatientSelect(patientSel, patients);
+          patientsById = Object.fromEntries(patients.map((p) => [p.id, p]));
+          enhanceDoctorSelect();
+          enhancePatientSelect();
+          doctorHint.textContent = doctors.length
+            ? `${doctors.length} doctor(s) available`
+            : "Add doctors first.";
+          patientHint.textContent = patients.length
+            ? `${patients.length} patient(s) available`
+            : "Add patients first.";
+        } catch (e) {
+          console.error(e);
+          showToast(`Auth failed: ${e.code || e.message}`);
         }
       });
     </script>

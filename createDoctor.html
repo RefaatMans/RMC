@@ -17,88 +17,220 @@
         --shadow: 0 10px 30px rgba(2, 32, 71, 0.08);
         --radius-xl: 20px;
       }
-      * { box-sizing: border-box; }
-      html, body { height: 100%; }
-      body{
-        margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
         background: linear-gradient(160deg, #dceeff 0%, #f6f9fc 100%);
-        color:var(--text); line-height:1.5;
+        color: var(--text);
+        line-height: 1.5;
       }
 
       /* Header */
-      .header{
-        display:flex; align-items:center; justify-content:space-between;
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         padding: 20px clamp(16px, 4vw, 48px);
         background: linear-gradient(90deg, #1f6fff, #22c1ee);
         color: white;
       }
-      .brand{ display:flex; align-items:center; gap:12px; font-weight:800; color:white; }
-      .name{ font-size: clamp(1.1rem, 2.2vw, 1.4rem); }
-      .back{ text-decoration:none; color: white; display:inline-flex; align-items:center; gap:6px; }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        color: white;
+      }
+      .name {
+        font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+      }
+      .back {
+        text-decoration: none;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
 
       /* Layout */
-      .wrap{ max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 48px; }
-      .hero{ margin: 12px 0 10px; text-align:center; }
-      .hero h1{ margin:0; font-weight:900; color:var(--primary-600); font-size: clamp(1.6rem,3.5vw,2.2rem); }
-      .hero p{ margin:6px 0 0; color:var(--muted); }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 clamp(16px, 4vw, 48px) 48px;
+      }
+      .hero {
+        margin: 12px 0 10px;
+        text-align: center;
+      }
+      .hero h1 {
+        margin: 0;
+        font-weight: 900;
+        color: var(--primary-600);
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      }
+      .hero p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
 
-      .two-col{
-        display:grid; gap:16px;
+      .two-col {
+        display: grid;
+        gap: 16px;
         grid-template-columns: 1fr;
       }
-      @media (min-width: 980px){
-        .two-col{ grid-template-columns: 1.05fr .95fr; }
+      @media (min-width: 980px) {
+        .two-col {
+          grid-template-columns: 1.05fr 0.95fr;
+        }
       }
 
-      .card{ background:var(--card); border-radius: var(--radius-xl); padding: 22px; box-shadow: var(--shadow); border:1px solid rgba(15,23,42,0.06); }
+      .card {
+        background: var(--card);
+        border-radius: var(--radius-xl);
+        padding: 22px;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+      }
 
       /* Form */
-      form{ display:grid; grid-template-columns: 1fr; gap:16px; }
-      @media (min-width: 640px){ form{ grid-template-columns: 1fr 1fr; } }
-      .field{ display:flex; flex-direction:column; gap:8px; }
-      .field.full{ grid-column: 1 / -1; }
-      label{ font-weight:700; color:#0b2447; }
-      input, select{
-        appearance:none; -webkit-appearance:none;
-        padding:12px 14px; border-radius:12px; border:1px solid rgba(15,23,42,.12);
+      form {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 640px) {
+        form {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .field.full {
+        grid-column: 1 / -1;
+      }
+      label {
+        font-weight: 700;
+        color: #0b2447;
+      }
+      input,
+      select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
         background: linear-gradient(180deg, #ffffff, #f0f7ff);
-        outline:none; font-size:1rem; color:var(--text);
-        transition: border-color .15s ease, box-shadow .15s ease;
+        outline: none;
+        font-size: 1rem;
+        color: var(--text);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
       }
-      input:focus, select:focus{ border-color: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
-      .actions{ display:flex; gap:12px; justify-content:center; margin-top:16px; }
-      .btn{
-        border:0; padding:12px 16px; border-radius:12px; font-weight:800; cursor:pointer;
-        transition: transform .1s ease, box-shadow .2s ease, opacity .2s ease;
-        box-shadow: 0 10px 24px rgba(2,32,71,0.1);
+      input:focus,
+      select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--ring);
       }
-      .btn:active{ transform: translateY(1px); }
-      .btn-primary{ color:white; background: linear-gradient(135deg, var(--accent), var(--primary)); }
-      .btn-secondary{ background:#eef4ff; color: var(--primary-600); border:1px solid rgba(31,111,255,.25); }
+      .actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 16px;
+      }
+      .btn {
+        border: 0;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        box-shadow: 0 10px 24px rgba(2, 32, 71, 0.1);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        color: white;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+      }
+      .btn-secondary {
+        background: #eef4ff;
+        color: var(--primary-600);
+        border: 1px solid rgba(31, 111, 255, 0.25);
+      }
 
-      .bar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-      .crumbs{ color:var(--muted); font-size:.95rem; }
+      .bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .crumbs {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
 
-      .toast{ position: fixed; bottom:24px; left:50%; transform: translateX(-50%); background:#fff; border:1px solid rgba(31,111,255,.2); padding:12px 16px; border-radius:12px; box-shadow: var(--shadow); display:none; }
-      .toast.show{ display:block; }
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fff;
+        border: 1px solid rgba(31, 111, 255, 0.2);
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        display: none;
+      }
+      .toast.show {
+        display: block;
+      }
 
       /* Doctors table */
       .table-wrap {
         max-height: 520px;
         overflow: auto;
-        border: 1px solid rgba(15,23,42,0.06);
+        border: 1px solid rgba(15, 23, 42, 0.06);
         border-radius: 12px;
         background: #fff;
       }
-      table { width: 100%; border-collapse: collapse; font-size: .98rem; }
-      thead th {
-        position: sticky; top: 0; z-index: 1;
-        background: #f0f7ff; color:#0b2447; text-align:left; font-weight:800;
-        border-bottom: 1px solid rgba(15,23,42,0.12); padding: 10px 12px;
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.98rem;
       }
-      tbody td { padding: 10px 12px; border-bottom: 1px solid rgba(15,23,42,0.06); }
-      tbody tr:hover { background:#f8fbff; }
-      .empty-row td { text-align:center; color: var(--muted); }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f0f7ff;
+        color: #0b2447;
+        text-align: left;
+        font-weight: 800;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 10px 12px;
+      }
+      tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      }
+      tbody tr:hover {
+        background: #f8fbff;
+      }
+      .empty-row td {
+        text-align: center;
+        color: var(--muted);
+      }
     </style>
   </head>
   <body>
@@ -108,7 +240,19 @@
         <span class="name">Ruwais Medical Center</span>
       </div>
       <a class="back" href="home.html" aria-label="Back to dashboard">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
         Back
       </a>
     </header>
@@ -116,7 +260,10 @@
     <main class="wrap" role="main">
       <section class="hero">
         <h1>Create Doctor</h1>
-        <p>Add a new doctor to your medical center. Fields marked with * are required.</p>
+        <p>
+          Add a new doctor to your medical center. Fields marked with * are
+          required.
+        </p>
       </section>
 
       <!-- Two columns: left form, right table -->
@@ -130,12 +277,26 @@
           <form id="doctorForm" novalidate>
             <div class="field full">
               <label for="name">Full Name *</label>
-              <input id="name" name="name" type="text" placeholder="e.g., Dr. Maya Haddad" required />
+              <input
+                id="name"
+                name="name"
+                type="text"
+                placeholder="e.g., Dr. Maya Haddad"
+                required
+              />
             </div>
 
             <div class="field">
               <label for="phone">Phone *</label>
-              <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="e.g., +961 3 123 456" pattern="^[+]?\d[\d\s-]{6,}$" required />
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                placeholder="e.g., +961 3 123 456"
+                pattern="^[+]?\d[\d\s-]{6,}$"
+                required
+              />
             </div>
 
             <div class="field">
@@ -155,11 +316,18 @@
 
             <div class="field full">
               <label for="notes">Notes</label>
-              <input id="notes" name="notes" type="text" placeholder="Optional notes (e.g., languages, clinic days)" />
+              <input
+                id="notes"
+                name="notes"
+                type="text"
+                placeholder="Optional notes (e.g., languages, clinic days)"
+              />
             </div>
 
             <div class="actions full">
-              <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+              <button type="button" class="btn btn-secondary" id="cancelBtn">
+                Cancel
+              </button>
               <button type="submit" class="btn btn-primary">Save Doctor</button>
             </div>
           </form>
@@ -167,23 +335,27 @@
 
         <!-- Right: Doctors list card -->
         <section class="card" aria-label="Doctors list">
-          <div class="bar" style="margin-bottom:10px;">
+          <div class="bar" style="margin-bottom: 10px">
             <div class="crumbs"><strong>All Doctors</strong></div>
-            <div class="muted"><strong id="doctorsCount">0</strong> doctor(s)</div>
+            <div class="muted">
+              <strong id="doctorsCount">0</strong> doctor(s)
+            </div>
           </div>
 
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th style="min-width:200px;">Name</th>
-                  <th style="min-width:160px;">Phone</th>
-                  <th style="min-width:160px;">Specialty</th>
+                  <th style="min-width: 200px">Name</th>
+                  <th style="min-width: 160px">Phone</th>
+                  <th style="min-width: 160px">Specialty</th>
                   <th>Notes</th>
                 </tr>
               </thead>
               <tbody id="doctorsBody">
-                <tr class="empty-row"><td colspan="4">No doctors yet.</td></tr>
+                <tr class="empty-row">
+                  <td colspan="4">No doctors yet.</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -191,13 +363,17 @@
       </section>
     </main>
 
-    <div class="toast" id="toast" role="status" aria-live="polite">Doctor saved successfully.</div>
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      Doctor saved successfully.
+    </div>
 
     <script type="module">
-      if (sessionStorage.getItem('rmcAuth') !== '1') {
-    window.location.replace('index.html');
-  }
-      // Firebase v12 (modular) imports
+      // Optional: keep your own session gate
+      if (sessionStorage.getItem("rmcAuth") !== "1") {
+        window.location.replace("index.html");
+      }
+
+      // ---------- Firebase ----------
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import {
         initializeFirestore,
@@ -208,8 +384,12 @@
         getDocs,
         serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
-      // Your Firebase config
       const firebaseConfig = {
         apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
         authDomain: "rmc-db-486f0.firebaseapp.com",
@@ -219,21 +399,21 @@
         appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
       };
 
-      // Init app + Firestore (force long polling for strict networks)
       const app = initializeApp(firebaseConfig);
       const db = initializeFirestore(app, {
         experimentalForceLongPolling: true,
         useFetchStreams: false,
       });
+      const auth = getAuth(app);
 
-      // ---- DOM refs ----
+      // ---------- DOM refs ----------
       const form = document.getElementById("doctorForm");
       const toast = document.getElementById("toast");
       const cancelBtn = document.getElementById("cancelBtn");
       const doctorsBody = document.getElementById("doctorsBody");
       const doctorsCountEl = document.getElementById("doctorsCount");
 
-      // ---- Helpers ----
+      // ---------- Helpers ----------
       const normalizePhone = (p) => (p || "").replace(/\D/g, "");
       const showToast = (msg) => {
         toast.textContent = msg;
@@ -242,44 +422,47 @@
         showToast._t = setTimeout(() => toast.classList.remove("show"), 2200);
       };
       const byName = (a, b) =>
-        (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        });
 
-      // ---- Load & render doctors list ----
+      // ---------- Data ----------
       async function loadDoctors() {
         const snap = await getDocs(collection(db, "doctors"));
         return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
       }
 
-      function renderDoctors(list){
+      function renderDoctors(list) {
         doctorsBody.innerHTML = "";
         if (doctorsCountEl) doctorsCountEl.textContent = list.length;
-        if (!list.length){
+        if (!list.length) {
           doctorsBody.innerHTML = `<tr class="empty-row"><td colspan="4">No doctors found.</td></tr>`;
           return;
         }
         for (const d of list) {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${d.name || "—"}</td>
-            <td>${d.phone || "—"}</td>
-            <td>${d.specialty || "—"}</td>
-            <td>${d.notes || "—"}</td>
-          `;
+        <td>${d.name || "—"}</td>
+        <td>${d.phone || "—"}</td>
+        <td>${d.specialty || "—"}</td>
+        <td>${d.notes || "—"}</td>
+      `;
           doctorsBody.appendChild(tr);
         }
       }
 
-      async function refreshDoctors(){
-        try{
+      async function refreshDoctors() {
+        try {
           const list = await loadDoctors();
           renderDoctors(list);
-        }catch(e){
+        } catch (e) {
           console.error(e);
           renderDoctors([]);
+          showToast("Failed to load doctors.");
         }
       }
 
-      // ---- UI events ----
+      // ---------- UI events ----------
       cancelBtn.addEventListener("click", () => {
         if (confirm("Discard changes?")) window.location.href = "home.html";
       });
@@ -299,6 +482,9 @@
         };
 
         try {
+          // Ensure signed in (should already be true after onAuthStateChanged)
+          if (!auth.currentUser) await signInAnonymously(auth);
+
           // Duplicate check by normalized phone
           const phoneKey = normalizePhone(payload.phone);
           const dupSnap = await getDocs(
@@ -309,24 +495,36 @@
             return;
           }
 
-          // Save to Firestore
+          // Save
           await addDoc(collection(db, "doctors"), {
             ...payload,
             phoneKey,
             createdAt: serverTimestamp(),
+            createdBy: auth.currentUser?.uid || null, // helpful for auditing later
           });
 
           showToast(`Doctor "${payload.name}" saved successfully.`);
           form.reset();
-          refreshDoctors(); // refresh the table after saving
+          refreshDoctors();
         } catch (err) {
           console.error(err);
           showToast("Error saving doctor. Check console.");
         }
       });
 
-      // Initial table render
-      refreshDoctors();
+      // ---------- Auth gate then init ----------
+      onAuthStateChanged(auth, async (user) => {
+        try {
+          if (!user) {
+            await signInAnonymously(auth);
+            return;
+          } // will fire again with user
+          await refreshDoctors();
+        } catch (e) {
+          console.error(e);
+          showToast(`Auth failed: ${e.code || e.message}`);
+        }
+      });
     </script>
   </body>
 </html>

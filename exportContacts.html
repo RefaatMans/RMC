@@ -70,122 +70,136 @@
       <p id="status" class="muted">Pick a date and click Export.</p>
     </main>
 
-    <script type="module">
-      // Gate
-      if (sessionStorage.getItem("rmcAuth") !== "1") {
-        window.location.replace("index.html");
+   <script type="module">
+  // Simple session gate (optional)
+  if (sessionStorage.getItem("rmcAuth") !== "1") {
+    window.location.replace("index.html");
+  }
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import {
+    initializeFirestore,
+    collection, getDocs, query, where, orderBy, Timestamp
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+    authDomain: "rmc-db-486f0.firebaseapp.com",
+    projectId: "rmc-db-486f0",
+    storageBucket: "rmc-db-486f0.firebasestorage.app",
+    messagingSenderId: "711840343507",
+    appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = initializeFirestore(app, { experimentalForceLongPolling: true, useFetchStreams: false });
+  const auth = getAuth(app);
+
+  // DOM
+  const fromDateEl = document.getElementById("fromDate");
+  const exportBtn  = document.getElementById("exportBtn");
+  const statusEl   = document.getElementById("status");
+
+  // Disable export until authed
+  exportBtn.disabled = true;
+  statusEl.textContent = "Signing in…";
+
+  // Default the date picker to TODAY (local)
+  (function setDefaultToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    fromDateEl.value = `${yyyy}-${mm}-${dd}`;
+  })();
+
+  // Helpers
+  function csvEscape(val) {
+    const s = (val ?? "").toString().replace(/"/g, '""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  }
+  function toStartOfDayLocal(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0); // local midnight
+  }
+  async function fetchPatientsFromDate(dateStr) {
+    const start  = toStartOfDayLocal(dateStr);
+    const startTs = Timestamp.fromDate(start);
+    // Single-field index only; valid combo of where+orderBy on same field
+    const qRef = query(
+      collection(db, "patients"),
+      where("createdAt", ">=", startTs),
+      orderBy("createdAt")
+    );
+    const snap = await getDocs(qRef);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+  function downloadContactsCSV(rows, filename) {
+    const SEP_HINT = "sep=,";
+    const BOM = "\uFEFF";
+    const lines = [];
+    lines.push("Name,Phone 1 - Value,Phone 1 - Type");
+    for (const r of rows) {
+      const name  = csvEscape(r.name);
+      const phone = csvEscape(r.phone);
+      const type  = "Mobile";
+      lines.push(`${name},${phone},${type}`);
+    }
+    const csv  = [SEP_HINT, ...lines].join("\n");
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  exportBtn.addEventListener("click", async () => {
+    try {
+      const dateStr = fromDateEl.value;
+      if (!dateStr) {
+        statusEl.textContent = "Please choose a date.";
+        return;
       }
+      exportBtn.disabled = true;
+      statusEl.textContent = "Gathering contacts…";
 
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-      import {
-        initializeFirestore,
-        collection, getDocs, query, where, orderBy, Timestamp
-      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      const data = await fetchPatientsFromDate(dateStr);
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      const filename = `contacts-google-from-${dateStr}-${ts}.csv`;
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
-        authDomain: "rmc-db-486f0.firebaseapp.com",
-        projectId: "rmc-db-486f0",
-        storageBucket: "rmc-db-486f0.firebasestorage.app",
-        messagingSenderId: "711840343507",
-        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
-      };
+      downloadContactsCSV(data, filename);
+      statusEl.innerHTML = `<span class="ok">Done.</span> Exported <strong>${data.length}</strong> contact(s) created on or after <strong>${dateStr}</strong>.`;
+    } catch (e) {
+      console.error(e);
+      statusEl.innerHTML = `<span class="err">Export failed.</span> See console for details.`;
+    } finally {
+      exportBtn.disabled = false;
+    }
+  });
 
-      const app = initializeApp(firebaseConfig);
-      const db = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        useFetchStreams: false,
-      });
-
-      const fromDateEl = document.getElementById("fromDate");
-      const exportBtn  = document.getElementById("exportBtn");
-      const statusEl   = document.getElementById("status");
-
-      // Default the date picker to TODAY (local)
-      (function setDefaultToday() {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
-        fromDateEl.value = `${yyyy}-${mm}-${dd}`;
-      })();
-
-      function csvEscape(val) {
-        const s = (val ?? "").toString().replace(/"/g, '""');
-        return /[",\n]/.test(s) ? `"${s}"` : s;
+  // Auth gate: only enable reads after sign-in
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) {
+        await signInAnonymously(auth);
+        return; // will fire again when signed in
       }
+      exportBtn.disabled = false;
+      statusEl.textContent = "Pick a date and click Export.";
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Authentication failed; Firestore is protected by rules.";
+    }
+  });
+</script>
 
-      function toStartOfDayLocal(dateStr) {
-        // dateStr is "YYYY-MM-DD"
-        const [y, m, d] = dateStr.split("-").map(Number);
-        return new Date(y, m - 1, d, 0, 0, 0, 0); // local midnight
-      }
-
-      async function fetchPatientsFromDate(dateStr) {
-        const start = toStartOfDayLocal(dateStr);
-        const startTs = Timestamp.fromDate(start);
-
-        // Query by createdAt >= start-of-day
-        const qRef = query(
-          collection(db, "patients"),
-          where("createdAt", ">=", startTs),
-          orderBy("createdAt")
-        );
-        const snap = await getDocs(qRef);
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      }
-
-      // Download in Google Contacts CSV format
-      function downloadContactsCSV(rows, filename) {
-        // Excel delimiter hint + UTF-8 BOM for proper column split & unicode
-        const SEP_HINT = "sep=,";
-        const BOM = "\uFEFF";
-
-        const lines = [];
-        // Google Contacts headers
-        lines.push("Name,Phone 1 - Value,Phone 1 - Type");
-
-        for (const r of rows) {
-          const name = csvEscape(r.name);
-          const phone = csvEscape(r.phone);
-          const type = "Mobile"; // you can change to "Home", "Work", etc.
-          lines.push(`${name},${phone},${type}`);
-        }
-
-        const csv = [SEP_HINT, ...lines].join("\n");
-        const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }
-
-      exportBtn.addEventListener("click", async () => {
-        try {
-          const dateStr = fromDateEl.value;
-          if (!dateStr) {
-            statusEl.textContent = "Please choose a date.";
-            return;
-          }
-          statusEl.textContent = "Gathering contacts…";
-
-          const data = await fetchPatientsFromDate(dateStr);
-          const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-          const filename = `contacts-google-from-${dateStr}-${ts}.csv`;
-
-          downloadContactsCSV(data, filename);
-          statusEl.innerHTML = `<span class="ok">Done.</span> Exported <strong>${data.length}</strong> contact(s) created on or after <strong>${dateStr}</strong>.`;
-        } catch (e) {
-          console.error(e);
-          statusEl.innerHTML = `<span class="err">Export failed.</span> See console for details.`;
-        }
-      });
-    </script>
   </body>
 </html>

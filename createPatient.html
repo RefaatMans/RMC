@@ -404,284 +404,251 @@
 
     <div class="toast" id="toast"></div>
 
-    <script type="module">
-      if (sessionStorage.getItem("rmcAuth") !== "1") {
-        window.location.replace("index.html");
-      }
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-      import {
-        initializeFirestore,
-        collection,
-        addDoc,
-        getDocs,
-        query,
-        where,
-        orderBy,
-        startAt,
-        endAt,
-        limit,
-        serverTimestamp,
-      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+   <script type="module">
+  // Optional: your own session gate
+  if (sessionStorage.getItem("rmcAuth") !== "1") {
+    window.location.replace("index.html");
+  }
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
-        authDomain: "rmc-db-486f0.firebaseapp.com",
-        projectId: "rmc-db-486f0",
-        storageBucket: "rmc-db-486f0.firebasestorage.app",
-        messagingSenderId: "711840343507",
-        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
-      };
+  // ---------- Firebase ----------
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import {
+    initializeFirestore,
+    collection, addDoc, getDocs, query, where,
+    orderBy, startAt, endAt, limit, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
-      const app = initializeApp(firebaseConfig);
-      const db = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        useFetchStreams: false,
-      });
+  const firebaseConfig = {
+    apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+    authDomain: "rmc-db-486f0.firebaseapp.com",
+    projectId: "rmc-db-486f0",
+    storageBucket: "rmc-db-486f0.firebasestorage.app",
+    messagingSenderId: "711840343507",
+    appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+  };
 
-      // --- DOM
-      const form = document.getElementById("patientForm");
-      const toast = document.getElementById("toast");
-      const cancelBtn = document.getElementById("cancelBtn");
+  const app  = initializeApp(firebaseConfig);
+  const db   = initializeFirestore(app, { experimentalForceLongPolling: true, useFetchStreams: false });
+  const auth = getAuth(app);
 
-      const patientsBody = document.getElementById("patientsBody"); // tbody
-      const patientsCountEl = document.getElementById("patientsCount"); // small count element (optional)
+  // --- DOM
+  const form = document.getElementById("patientForm");
+  const toast = document.getElementById("toast");
+  const cancelBtn = document.getElementById("cancelBtn");
 
-      const searchInput = document.getElementById("patientSearch");
-      const modeRadios = document.querySelectorAll('input[name="patientMode"]');
+  const patientsBody = document.getElementById("patientsBody");
+  const patientsCountEl = document.getElementById("patientsCount");
 
-      // --- Helpers
-      const showToast = (msg) => {
-        toast.textContent = msg;
-        toast.classList.add("show");
-        clearTimeout(showToast._t);
-        showToast._t = setTimeout(() => toast.classList.remove("show"), 2200);
-      };
-      const byName = (a, b) =>
-        (a.name || "").localeCompare(b.name || "", undefined, {
-          sensitivity: "base",
-        });
+  const searchInput = document.getElementById("patientSearch");
+  const modeRadios  = document.querySelectorAll('input[name="patientMode"]');
 
-      const normalizePhone = (p) => String(p || "").replace(/\D/g, "");
-      const toNum = (v) => {
-        const s = String(v ?? "").replace(/\D/g, "");
-        return s ? parseInt(s, 10) : NaN;
-      };
+  // --- Helpers
+  const showToast = (msg) => {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), 2200);
+  };
+  const byName = (a, b) =>
+    (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
 
-      // Helper: turn "F-00123" -> 123, "123" -> 123, missing -> -Infinity (so it sorts last)
-      function fileNumToInt(v) {
-        if (typeof v === "number") return v;
-        if (!v) return -Infinity;
-        const m = String(v).match(/\d+/g);
-        return m ? parseInt(m.join(""), 10) : -Infinity;
-      }
+  const normalizePhone = (p) => String(p || "").replace(/\D/g, "");
+  const toNum = (v) => {
+    const s = String(v ?? "").replace(/\D/g, "");
+    return s ? parseInt(s, 10) : NaN;
+  };
+  const fileNumToInt = (v) => {
+    if (typeof v === "number") return v;
+    if (!v) return -Infinity;
+    const m = String(v).match(/\d+/g);
+    return m ? parseInt(m.join(""), 10) : -Infinity;
+  };
 
-      function renderPatients(list) {
-        if (!patientsBody) return;
+  function renderPatients(list) {
+    if (!patientsBody) return;
+    const sorted = [...list].sort((a, b) => fileNumToInt(b.fileNumber) - fileNumToInt(a.fileNumber));
+    patientsBody.innerHTML = "";
+    if (patientsCountEl) patientsCountEl.textContent = sorted.length;
 
-        // sort by fileNumber (largest -> smallest)
-        const sorted = [...list].sort(
-          (a, b) => fileNumToInt(b.fileNumber) - fileNumToInt(a.fileNumber)
-        );
+    if (!sorted.length) {
+      patientsBody.innerHTML = `<tr class="empty-row"><td colspan="3">No patients found.</td></tr>`;
+      return;
+    }
+    for (const p of sorted) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.name || "—"}</td>
+        <td>${p.phone || "—"}</td>
+        <td>${p.fileNumber ?? "—"}</td>
+      `;
+      patientsBody.appendChild(tr);
+    }
+  }
 
-        patientsBody.innerHTML = "";
-        if (patientsCountEl) patientsCountEl.textContent = sorted.length;
+  async function loadPatients() {
+    const snap = await getDocs(collection(db, "patients"));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
+  }
 
-        if (!sorted.length) {
-          // (You probably want colspan="3" here since there are 3 columns)
-          patientsBody.innerHTML = `<tr class="empty-row"><td colspan="3">No patients found.</td></tr>`;
-          return;
-        }
+  async function refreshPatients() {
+    try {
+      const pts = await loadPatients();
+      renderPatients(pts);
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't load patients.");
+    }
+  }
 
-        for (const p of sorted) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-      <td>${p.name || "—"}</td>
-      <td>${p.phone || "—"}</td>
-      <td>${p.fileNumber ?? "—"}</td>
-    `;
-          patientsBody.appendChild(tr);
-        }
-      }
+  async function runSearch() {
+    const termRaw = (searchInput?.value || "").trim();
+    const mode = [...modeRadios].find((r) => r.checked)?.value || "phone";
+    if (!termRaw) return refreshPatients();
 
-      async function loadPatients() {
-        const snap = await getDocs(collection(db, "patients"));
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
-      }
+    try {
+      let list = [];
+      if (mode === "phone") {
+        const pk = normalizePhone(termRaw);
+        if (!pk) return renderPatients([]);
 
-      async function refreshPatients() {
+        // 1) fast prefix search on phoneKey (single-field index)
         try {
-          const pts = await loadPatients();
-          renderPatients(pts);
-        } catch (err) {
-          console.error(err);
-          showToast("Couldn't load patients.");
-        }
-      }
+          const qRef = query(
+            collection(db, "patients"),
+            orderBy("phoneKey"),
+            startAt(pk),
+            endAt(pk + "\uf8ff"),
+            limit(100)
+          );
+          const snap = await getDocs(qRef);
+          list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        } catch { /* fall back below */ }
 
-      async function runSearch() {
-        const termRaw = (searchInput?.value || "").trim();
-        const mode = [...modeRadios].find((r) => r.checked)?.value || "phone";
-
-        if (!termRaw) return refreshPatients();
-
-        try {
-          let list = [];
-          if (mode === "phone") {
-            const pk = normalizePhone(termRaw);
-            if (!pk) return renderPatients([]);
-
-            // 1) Try indexed prefix search on phoneKey
-            try {
-              const qRef = query(
-                collection(db, "patients"),
-                orderBy("phoneKey"),
-                startAt(pk),
-                endAt(pk + "\uf8ff"),
-                limit(100)
-              );
-              const snap = await getDocs(qRef);
-              list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            } catch (_) {
-              // ignore; we'll fall back below
-            }
-
-            // 2) If no matches (or query failed), do a forgiving client filter
-            if (!list.length) {
-              const all = await loadPatients();
-              list = all.filter((p) => {
-                const digits = normalizePhone(p.phone);
-                // match prefix OR contains last digits; helps with +961 / 0 formats
-                return digits.startsWith(pk) || digits.includes(pk);
-              });
-            }
-          } else {
-            // File # search (exact or prefix)
-            const t = termRaw.toUpperCase();
-            if (/^\d+$/.test(t)) {
-              try {
-                const qRef = query(
-                  collection(db, "patients"),
-                  orderBy("fileNumber"),
-                  startAt(t),
-                  endAt(t + "\uf8ff"),
-                  limit(100)
-                );
-                const snap = await getDocs(qRef);
-                list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-              } catch (_) {
-                const all = await loadPatients();
-                list = all.filter((p) =>
-                  String(p.fileNumber ?? "")
-                    .toUpperCase()
-                    .startsWith(t)
-                );
-              }
-            } else {
-              const snap = await getDocs(
-                query(collection(db, "patients"), where("fileNumber", "==", t))
-              );
-              list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            }
-          }
-
-          renderPatients(list.sort(byName));
-        } catch (err) {
-          console.error(err);
-          showToast("Search failed.");
-        }
-      }
-
-      // small debounce to avoid spamming queries
-      function debounce(fn, ms = 200) {
-        let t;
-        return (...args) => {
-          clearTimeout(t);
-          t = setTimeout(() => fn(...args), ms);
-        };
-      }
-      const debouncedSearch = debounce(runSearch, 180);
-
-      // --- Form save (now stores phoneKey; fileNumber optional with auto-increment)
-      async function getNextFileNumber() {
-        const snap = await getDocs(collection(db, "patients"));
-        let max = 0;
-        snap.forEach((doc) => {
-          const n = toNum(doc.data().fileNumber);
-          if (!Number.isNaN(n) && n > max) max = n;
-        });
-        return String(max + 1);
-      }
-
-      cancelBtn?.addEventListener("click", () => {
-        if (confirm("Discard changes?")) window.location.href = "home.html";
-      });
-
-      form?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!form.checkValidity()) {
-          form.reportValidity();
-          return;
-        }
-
-        const name = form.name.value.trim();
-        const phone = form.phone.value.trim();
-        let fileRaw = (form.fileNumber.value || "").trim();
-
-        try {
-          if (fileRaw) {
-            fileRaw = fileRaw.toUpperCase();
-            const dup = await getDocs(
-              query(
-                collection(db, "patients"),
-                where("fileNumber", "==", fileRaw)
-              )
-            );
-            if (!dup.empty) {
-              showToast("A patient with this file number already exists.");
-              return;
-            }
-          } else {
-            fileRaw = await getNextFileNumber();
-            // safety against rare race
-            let tries = 0;
-            while (tries < 3) {
-              const dup = await getDocs(
-                query(
-                  collection(db, "patients"),
-                  where("fileNumber", "==", fileRaw)
-                )
-              );
-              if (dup.empty) break;
-              fileRaw = String(parseInt(fileRaw, 10) + 1);
-              tries++;
-            }
-          }
-
-          await addDoc(collection(db, "patients"), {
-            name,
-            phone,
-            phoneKey: normalizePhone(phone), // <— enables fast phone search
-            fileNumber: fileRaw,
-            fileNumberNum: toNum(fileRaw) ?? null,
-            numberOfVisits: 0,
-            createdAt: serverTimestamp(),
+        // 2) fallback: client-side contains/prefix
+        if (!list.length) {
+          const all = await loadPatients();
+          list = all.filter((p) => {
+            const digits = normalizePhone(p.phone);
+            return digits.startsWith(pk) || digits.includes(pk);
           });
-
-          showToast(`Patient "${name}" saved.`);
-          form.reset();
-          refreshPatients();
-        } catch (err) {
-          console.error(err);
-          showToast("Error saving patient.");
         }
+      } else {
+        // file number search
+        const t = termRaw.toUpperCase();
+        if (/^\d+$/.test(t)) {
+          try {
+            const qRef = query(
+              collection(db, "patients"),
+              orderBy("fileNumber"),
+              startAt(t),
+              endAt(t + "\uf8ff"),
+              limit(100)
+            );
+            const snap = await getDocs(qRef);
+            list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          } catch {
+            const all = await loadPatients();
+            list = all.filter((p) => String(p.fileNumber ?? "").toUpperCase().startsWith(t));
+          }
+        } else {
+          const snap = await getDocs(query(collection(db, "patients"), where("fileNumber", "==", t)));
+          list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        }
+      }
+      renderPatients(list.sort(byName));
+    } catch (err) {
+      console.error(err);
+      showToast("Search failed.");
+    }
+  }
+
+  // debounce
+  const debounce = (fn, ms = 200) => {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  };
+  const debouncedSearch = debounce(runSearch, 180);
+
+  // Generate next file number (simple max+1)
+  async function getNextFileNumber() {
+    const snap = await getDocs(collection(db, "patients"));
+    let max = 0;
+    snap.forEach((doc) => {
+      const n = toNum(doc.data().fileNumber);
+      if (!Number.isNaN(n) && n > max) max = n;
+    });
+    return String(max + 1);
+  }
+
+  // --- UI events (can be wired now; actions run after auth)
+  cancelBtn?.addEventListener("click", () => {
+    if (confirm("Discard changes?")) window.location.href = "home.html";
+  });
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+
+    const name = form.name.value.trim();
+    const phone = form.phone.value.trim();
+    let fileRaw = (form.fileNumber.value || "").trim();
+
+    try {
+      // ensure signed in (defensive)
+      if (!auth.currentUser) await signInAnonymously(auth);
+
+      if (fileRaw) {
+        fileRaw = fileRaw.toUpperCase();
+        const dup = await getDocs(query(collection(db, "patients"), where("fileNumber", "==", fileRaw)));
+        if (!dup.empty) { showToast("A patient with this file number already exists."); return; }
+      } else {
+        fileRaw = await getNextFileNumber();
+        // naive collision retry
+        let tries = 0;
+        while (tries < 3) {
+          const dup = await getDocs(query(collection(db, "patients"), where("fileNumber", "==", fileRaw)));
+          if (dup.empty) break;
+          fileRaw = String(parseInt(fileRaw, 10) + 1);
+          tries++;
+        }
+      }
+
+      await addDoc(collection(db, "patients"), {
+        name,
+        phone,
+        phoneKey: normalizePhone(phone),
+        fileNumber: fileRaw,
+        fileNumberNum: toNum(fileRaw) ?? null,
+        numberOfVisits: 0,
+        createdAt: serverTimestamp(),
+        createdBy: auth.currentUser?.uid || null,
       });
 
-      // --- Wire up search
+      showToast(`Patient "${name}" saved.`);
+      form.reset();
+      refreshPatients();
+    } catch (err) {
+      console.error(err);
+      showToast("Error saving patient.");
+    }
+  });
+
+  // --- Auth gate then initial load / search wiring
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) { await signInAnonymously(auth); return; } // will fire again with user
+      // only start hitting Firestore after we have auth
+      await refreshPatients();
       searchInput?.addEventListener("input", debouncedSearch);
       modeRadios?.forEach((r) => r.addEventListener("change", debouncedSearch));
+    } catch (e) {
+      console.error(e);
+      showToast(`Auth failed: ${e.code || e.message}`);
+    }
+  });
+</script>
 
-      // Initial table load
-      refreshPatients();
-    </script>
   </body>
 </html>

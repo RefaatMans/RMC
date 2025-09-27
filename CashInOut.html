@@ -196,211 +196,207 @@ body.mode-out .card {
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
   <!-- Firebase + page script -->
-  <script type="module">
-    if (sessionStorage.getItem('rmcAuth') !== '1') {
+ <script type="module">
+  // Optional: keep your own session check
+  if (sessionStorage.getItem('rmcAuth') !== '1') {
     window.location.replace('index.html');
   }
-    // ---------- Searchable selects ----------
-    let patientTS, doctorTS;
-    function enhanceSelects() {
-      if (!window.TomSelect) return;
-      patientTS?.destroy();
-      doctorTS?.destroy();
 
-      patientTS = new TomSelect('#patient', {
-        create:false, allowEmptyOption:true, searchField:['text'],
-        sortField:{ field:'text', direction:'asc' }, maxOptions:5000, plugins:['clear_button']
-      });
-      doctorTS = new TomSelect('#doctor', {
-        create:false, allowEmptyOption:true, searchField:['text'],
-        sortField:{ field:'text', direction:'asc' }, maxOptions:5000, plugins:['clear_button']
-      });
-    }
-
-    // ---------- Firebase ----------
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-    import {
-      initializeFirestore,
-      collection, addDoc, getDocs, query, where,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
-      authDomain: "rmc-db-486f0.firebaseapp.com",
-      projectId: "rmc-db-486f0",
-      storageBucket: "rmc-db-486f0.firebasestorage.app",
-      messagingSenderId: "711840343507",
-      appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = initializeFirestore(app, { experimentalForceLongPolling:true, useFetchStreams:false });
-
-    // ---------- DOM ----------
-    const toast = document.getElementById('toast');
-    const cashForm = document.getElementById('cashForm');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const patientSel = document.getElementById('patient');
-    const doctorSel = document.getElementById('doctor');
-    const amountEl  = document.getElementById('amount');
-    const medicalActEl = document.getElementById('medicalAct');
-    const dateEl = document.getElementById('date');
-    const btnIn = document.getElementById('btnIn');
-    const btnOut = document.getElementById('btnOut');
-    const typeHint = document.getElementById('typeHint');
-
-    let entryType = 'in'; // 'in' | 'out'
-
-    // ---------- Helpers ----------
-    const showToast = (msg) => {
-      toast.textContent = msg;
-      toast.classList.add('show');
-      clearTimeout(showToast._t);
-      showToast._t = setTimeout(()=> toast.classList.remove('show'), 2200);
-    };
-    const byName = (a,b)=> (a.name||"").localeCompare(b.name||"", undefined, {sensitivity:"base"});
-    function fillSelect(selectEl, phText, items){
-      selectEl.innerHTML = "";
-      const ph = document.createElement('option');
-      ph.value=""; ph.disabled=true; ph.selected=true; ph.textContent = phText;
-      selectEl.appendChild(ph);
-      for (const it of items){
-        const opt = document.createElement('option');
-        opt.value = it.id;
-        opt.textContent = it.name || '(no name)';
-        opt.dataset.name = it.name || '';
-        selectEl.appendChild(opt);
-      }
-      selectEl.disabled = items.length === 0;
-    }
-    const todayISO = ()=> {
-      const d = new Date();
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const dd = String(d.getDate()).padStart(2,'0');
-      return `${y}-${m}-${dd}`;
-    };
-
-    // ---------- Data loaders ----------
-    async function loadPatients(){
-      const snap = await getDocs(collection(db, 'patients'));
-      return snap.docs.map(d=>({id:d.id, ...d.data()})).sort(byName);
-    }
-    async function loadDoctors(){
-      const snap = await getDocs(collection(db, 'doctors'));
-      return snap.docs.map(d=>({id:d.id, ...d.data()})).sort(byName);
-    }
-
-    // ---------- Type toggle ----------
-    function setType(t){
-  entryType = t; // 'in' | 'out'
-  const body = document.body;
-  const badge = document.getElementById('modeBadge');
-
-  // Toggle body classes -> swaps theme vars & card/btn styles
-  body.classList.remove('mode-in','mode-out');
-  body.classList.add(t === 'in' ? 'mode-in' : 'mode-out');
-
-  // Switch button states
-  if (t === 'in'){
-    btnIn.classList.add('active','in');
-    btnOut.classList.remove('active','out');
-    patientSel.required = true;
-    doctorSel.required = true;
-    typeHint.textContent = 'Patient & Doctor required.';
-    if (badge){ badge.textContent = 'CASH IN'; badge.classList.remove('out'); badge.classList.add('in'); }
-    amountEl.placeholder = 'e.g., +25.00';
-  } else {
-    btnOut.classList.add('active','out');
-    btnIn.classList.remove('active','in');
-    // For cash out, make them optional (you can flip to required if needed)
-    patientSel.required = false;
-    doctorSel.required = false;
-    typeHint.textContent = 'Patient & Doctor optional.';
-    if (badge){ badge.textContent = 'CASH OUT'; badge.classList.remove('in'); badge.classList.add('out'); }
-    amountEl.placeholder = 'e.g., -25.00';
+  // ---------- Searchable selects ----------
+  let patientTS, doctorTS;
+  function enhanceSelects() {
+    if (!window.TomSelect) return;
+    patientTS?.destroy();
+    doctorTS?.destroy();
+    patientTS = new TomSelect('#patient', {
+      create:false, allowEmptyOption:true, searchField:['text'],
+      sortField:{ field:'text', direction:'asc' }, maxOptions:5000, plugins:['clear_button']
+    });
+    doctorTS = new TomSelect('#doctor', {
+      create:false, allowEmptyOption:true, searchField:['text'],
+      sortField:{ field:'text', direction:'asc' }, maxOptions:5000, plugins:['clear_button']
+    });
   }
-}
 
-    btnIn.addEventListener('click', ()=> setType('in'));
-    btnOut.addEventListener('click', ()=> setType('out'));
+  // ---------- Firebase ----------
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import {
+    initializeFirestore,
+    collection, addDoc, getDocs, query, where,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
-    // ---------- Init ----------
-    (async () => {
-      try{
-        const [patients, doctors] = await Promise.all([loadPatients(), loadDoctors()]);
-        fillSelect(patientSel, patients.length ? 'Select a patient' : 'No patients found', patients);
-        fillSelect(doctorSel, doctors.length ? 'Select a doctor' : 'No doctors found', doctors);
-        enhanceSelects();
-        dateEl.value = todayISO();
-        setType('in');
-      }catch(e){
-        console.error(e);
-        showToast('Failed to load lists.');
+  const firebaseConfig = {
+    apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+    authDomain: "rmc-db-486f0.firebaseapp.com",
+    projectId: "rmc-db-486f0",
+    storageBucket: "rmc-db-486f0.firebasestorage.app",
+    messagingSenderId: "711840343507",
+    appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = initializeFirestore(app, { experimentalForceLongPolling:true, useFetchStreams:false });
+  const auth = getAuth(app);
+
+  // ---------- DOM ----------
+  const toast = document.getElementById('toast');
+  const cashForm = document.getElementById('cashForm');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const patientSel = document.getElementById('patient');
+  const doctorSel = document.getElementById('doctor');
+  const amountEl  = document.getElementById('amount');
+  const medicalActEl = document.getElementById('medicalAct');
+  const dateEl = document.getElementById('date');
+  const btnIn = document.getElementById('btnIn');
+  const btnOut = document.getElementById('btnOut');
+  const typeHint = document.getElementById('typeHint');
+
+  let entryType = 'in'; // 'in' | 'out'
+
+  // ---------- Helpers ----------
+  const showToast = (msg) => {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.classList.remove('show'), 2200);
+  };
+  const byName = (a,b)=> (a.name||"").localeCompare(b.name||"", undefined, {sensitivity:"base"});
+  function fillSelect(selectEl, phText, items){
+    selectEl.innerHTML = "";
+    const ph = document.createElement('option');
+    ph.value=""; ph.disabled=true; ph.selected=true; ph.textContent = phText;
+    selectEl.appendChild(ph);
+    for (const it of items){
+      const opt = document.createElement('option');
+      opt.value = it.id;
+      opt.textContent = it.name || '(no name)';
+      opt.dataset.name = it.name || '';
+      selectEl.appendChild(opt);
+    }
+    selectEl.disabled = items.length === 0;
+  }
+  const todayISO = ()=> {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  };
+
+  // ---------- Data loaders ----------
+  async function loadPatients(){
+    const snap = await getDocs(collection(db, 'patients'));
+    return snap.docs.map(d=>({id:d.id, ...d.data()})).sort(byName);
+  }
+  async function loadDoctors(){
+    const snap = await getDocs(collection(db, 'doctors'));
+    return snap.docs.map(d=>({id:d.id, ...d.data()})).sort(byName);
+  }
+
+  // ---------- Type toggle ----------
+  function setType(t){
+    entryType = t; // 'in' | 'out'
+    const body = document.body;
+    const badge = document.getElementById('modeBadge');
+
+    body.classList.remove('mode-in','mode-out');
+    body.classList.add(t === 'in' ? 'mode-in' : 'mode-out');
+
+    if (t === 'in'){
+      btnIn.classList.add('active','in');
+      btnOut.classList.remove('active','out');
+      patientSel.required = true;
+      doctorSel.required = true;
+      typeHint.textContent = 'Patient & Doctor required.';
+      if (badge){ badge.textContent = 'CASH IN'; badge.classList.remove('out'); badge.classList.add('in'); }
+      amountEl.placeholder = 'e.g., +25.00';
+    } else {
+      btnOut.classList.add('active','out');
+      btnIn.classList.remove('active','in');
+      patientSel.required = false;
+      doctorSel.required = false;
+      typeHint.textContent = 'Patient & Doctor optional.';
+      if (badge){ badge.textContent = 'CASH OUT'; badge.classList.remove('in'); badge.classList.add('out'); }
+      amountEl.placeholder = 'e.g., -25.00';
+    }
+  }
+  btnIn.addEventListener('click', ()=> setType('in'));
+  btnOut.addEventListener('click', ()=> setType('out'));
+
+  // ---------- Actions ----------
+  cancelBtn.addEventListener('click', ()=>{
+    if (confirm('Discard changes?')) window.location.href='cashhome.html';
+  });
+
+  cashForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if (!cashForm.checkValidity()){ cashForm.reportValidity(); return; }
+
+    const patientId = patientSel.value || null;
+    const patientName = patientId
+      ? (patientSel.options[patientSel.selectedIndex]?.dataset?.name || patientSel.options[patientSel.selectedIndex]?.textContent || '')
+      : '';
+    const doctorId = doctorSel.value || null;
+    const doctorName = doctorId
+      ? (doctorSel.options[doctorSel.selectedIndex]?.dataset?.name || doctorSel.options[doctorSel.selectedIndex]?.textContent || '')
+      : '';
+    const amount = parseFloat(amountEl.value);
+    if (!(amount > 0)) { showToast('Amount must be greater than 0.'); return; }
+    const medicalAct = medicalActEl.value.trim();
+    const dateStr = dateEl.value;
+    if (!dateStr){ showToast('Please pick a date.'); return; }
+    if (entryType==='in' && (!patientId || !doctorId)){
+      showToast('Patient and Doctor are required for Cash In.');
+      return;
+    }
+
+    try{
+      await addDoc(collection(db,'cash'), {
+        type: entryType,
+        amount,
+        signedAmount: entryType==='out' ? -amount : amount,
+        medicalAct,
+        date: new Date(dateStr),
+        patientId, patientName,
+        doctorId, doctorName,
+        createdAt: serverTimestamp()
+      });
+      showToast('Entry saved.');
+      cashForm.reset();
+      patientTS?.clear(true);
+      doctorTS?.clear(true);
+      dateEl.value = todayISO();
+      setType('in');
+    }catch(err){
+      console.error(err);
+      showToast('Error saving entry.');
+    }
+  });
+
+  // ---------- AUTH then init ----------
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) {
+        await signInAnonymously(auth);
+        return; // will fire again with a user
       }
-    })();
+      // Only load data once authenticated
+      const [patients, doctors] = await Promise.all([loadPatients(), loadDoctors()]);
+      fillSelect(patientSel, patients.length ? 'Select a patient' : 'No patients found', patients);
+      fillSelect(doctorSel,  doctors.length ? 'Select a doctor'  : 'No doctors found',  doctors);
+      enhanceSelects();
+      dateEl.value = todayISO();
+      setType('in');
+    } catch (e) {
+      console.error(e);
+      showToast('Auth failed. Firestore is protected by rules.');
+    }
+  });
+</script>
 
-    // ---------- Actions ----------
-    cancelBtn.addEventListener('click', ()=>{
-      if (confirm('Discard changes?')) window.location.href='cashhome.html';
-    });
-
-    cashForm.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-
-      if (!cashForm.checkValidity()){
-        cashForm.reportValidity();
-        return;
-      }
-
-      const patientId = patientSel.value || null;
-      const patientName = patientId
-        ? (patientSel.options[patientSel.selectedIndex]?.dataset?.name || patientSel.options[patientSel.selectedIndex]?.textContent || '')
-        : '';
-
-      const doctorId = doctorSel.value || null;
-      const doctorName = doctorId
-        ? (doctorSel.options[doctorSel.selectedIndex]?.dataset?.name || doctorSel.options[doctorSel.selectedIndex]?.textContent || '')
-        : '';
-
-      const amount = parseFloat(amountEl.value);
-      if (!(amount > 0)) { showToast('Amount must be greater than 0.'); return; }
-
-      const medicalAct = medicalActEl.value.trim();
-      const dateStr = dateEl.value; // YYYY-MM-DD
-      if (!dateStr){ showToast('Please pick a date.'); return; }
-
-      // For "in", enforce patient/doctor required in code too (in case browser didn't)
-      if (entryType==='in' && (!patientId || !doctorId)){
-        showToast('Patient and Doctor are required for Cash In.');
-        return;
-      }
-
-      try{
-        await addDoc(collection(db,'cash'), {
-          type: entryType,                   // 'in' | 'out'
-          amount,                            // positive
-          signedAmount: entryType==='out' ? -amount : amount,
-          medicalAct,
-          date: new Date(dateStr),           // stored as Timestamp
-          patientId, patientName,
-          doctorId, doctorName,
-          createdAt: serverTimestamp()
-        });
-
-        showToast('Entry saved.');
-        cashForm.reset();
-        // reset selects UI (Tom Select)
-        patientTS?.clear(true);
-        doctorTS?.clear(true);
-        dateEl.value = todayISO();
-        setType('in');
-      }catch(err){
-        console.error(err);
-        showToast('Error saving entry.');
-      }
-    });
-  </script>
 </body>
 </html>
