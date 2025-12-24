@@ -345,7 +345,7 @@ body.mode-out .card {
       ? (doctorSel.options[doctorSel.selectedIndex]?.dataset?.name || doctorSel.options[doctorSel.selectedIndex]?.textContent || '')
       : '';
     const amount = parseFloat(amountEl.value);
-    if (!(amount > 0)) { showToast('Amount must be greater than 0.'); return; }
+    //if (!(amount > 0)) { showToast('Amount must be greater than 0.'); return; }
     const medicalAct = medicalActEl.value.trim();
     const dateStr = dateEl.value;
     if (!dateStr){ showToast('Please pick a date.'); return; }
