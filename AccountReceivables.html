@@ -82,7 +82,10 @@
       tbody tr:nth-child(even) { background: #fbfdff; }
       tbody tr:hover { background: #f6faff; }
       .right { text-align: right; }
-
+/* Fully paid row */
+tr.fully-paid {
+  background-color: #e6f2ff !important; /* light blue */
+}
       /* input inside table cell for editable Paid/Lab */
       .cell-input {
         width: 100%;
@@ -324,6 +327,9 @@
       const dt = r.date?.toDate ? r.date.toDate() : (r.date instanceof Date ? r.date : new Date(r.date));
       const dstr = isNaN(dt) ? "" : dt.toISOString().slice(0,10);
       const tr = document.createElement("tr");
+      if (paid >= amt && amt > 0) {
+  tr.classList.add("fully-paid");
+}
       tr.innerHTML = `
         <td>${dstr}</td>
         <td>${r.patient||"—"}</td>
