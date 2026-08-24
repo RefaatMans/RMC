@@ -18,11 +18,11 @@
     label{ font-weight:700; color:#0b2447 }
     input{ padding:10px 12px; border-radius:12px; border:1px solid rgba(15,23,42,.12); background:linear-gradient(180deg,#fff,#f0f7ff); outline:none }
     input:focus{ border-color:var(--primary); box-shadow:0 0 0 4px var(--ring) }
-    .stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px }
+    .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px }
     .stat{ background:#fff; border:1px solid rgba(15,23,42,.08); border-radius:14px; padding:14px }
     .stat h3{ margin:0 0 6px; font-size:0.95rem; color:var(--muted) }
     .amt{ font-weight:900; font-size:1.2rem }
-    .in{ color:var(--green) } .out{ color:var(--red) } .net{ color:#0b2447 }
+    .in{ color:var(--green) } .out{ color:var(--red) } .net{ color:#0b2447 } .supplies{ color:#b45309 }
     .table-wrap{ border:1px solid rgba(15,23,42,.06); border-radius:12px; overflow:auto; max-height:60vh }
     table{ width:100%; border-collapse:collapse; background:#fff; font-size:.98rem }
     thead th{ position:sticky; top:0; background:#f0f7ff; color:#0b2447; text-align:left; font-weight:800; border-bottom:1px solid rgba(15,23,42,.12); padding:10px 12px }
@@ -50,6 +50,7 @@
         <div class="stat"><h3>Cash In</h3><div class="amt in" id="sumIn">0.00</div></div>
         <div class="stat"><h3>Cash Out</h3><div class="amt out" id="sumOut">0.00</div></div>
         <div class="stat"><h3>Net</h3><div class="amt net" id="sumNet">0.00</div></div>
+        <div class="stat"><h3>Supplies (20%)</h3><div class="amt supplies" id="sumSupplies">0.00</div></div>
       </div>
     </section>
 
@@ -97,7 +98,12 @@
   const sumInEl  = document.getElementById('sumIn');
   const sumOutEl = document.getElementById('sumOut');
   const sumNetEl = document.getElementById('sumNet');
+  const sumSuppliesEl = document.getElementById('sumSupplies');
   const refreshBtn = document.getElementById('refreshBtn');
+
+  // Supplies allowance, as a share of the net. Change here to change both the
+  // label and the figure.
+  const SUPPLIES_RATE = 0.20;
 
   // ---------- Utils ----------
   const fmtAmt = (n)=> (n<0?'-':'') + Math.abs(n).toFixed(2);
@@ -144,6 +150,7 @@
     sumInEl.textContent  = fmtAmt(sumIn);
     sumOutEl.textContent = fmtAmt(sumOut);
     sumNetEl.textContent = fmtAmt(net);
+    sumSuppliesEl.textContent = fmtAmt(net * SUPPLIES_RATE);
 
     // rows
     rows.innerHTML = '';
@@ -173,6 +180,9 @@
       if (!user) { await signInAnonymously(auth); return; } // will fire again with user
 
       // only run init once we have auth
+      document.querySelector('#sumSupplies')
+        .closest('.stat').querySelector('h3')
+        .textContent = `Supplies (${Math.round(SUPPLIES_RATE * 100)}%)`;
       dayEl.value = todayISO();
       refreshBtn.addEventListener('click', refresh);
       dayEl.addEventListener('change', refresh);

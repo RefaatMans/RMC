@@ -415,7 +415,7 @@
   import {
     initializeFirestore,
     collection, addDoc, getDocs, query, where,
-    orderBy, startAt, endAt, limit, serverTimestamp
+    orderBy, startAt, endAt, limit, serverTimestamp, doc, setDoc
   } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
   import {
     getAuth, signInAnonymously, onAuthStateChanged
@@ -433,6 +433,34 @@
   const app  = initializeApp(firebaseConfig);
   const db   = initializeFirestore(app, { experimentalForceLongPolling: true, useFetchStreams: false });
   const auth = getAuth(app);
+
+  /* ---------- Double-submit guard (prevents duplicate records) ---------- */
+  function guardSubmit(form, handler, busyLabel) {
+    if (!form) return;
+    var busy = false;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (busy) return;              // second click while the first is still running
+      busy = true;
+      const btns = Array.from(form.querySelectorAll('button[type="submit"]'));
+      const labels = btns.map((b) => b.textContent);
+      btns.forEach((b) => { b.disabled = true; b.textContent = busyLabel || 'Saving…'; });
+      try {
+        await handler(e);
+      } finally {
+        busy = false;
+        btns.forEach((b, i) => { b.disabled = false; b.textContent = labels[i]; });
+      }
+    });
+  }
+  // One-time write ticket used as the Firestore document ID, so a retried
+  // or duplicated write lands on the SAME doc instead of creating a new one.
+  function newOpId() {
+    return (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
 
   // --- DOM
   const form = document.getElementById("patientForm");
@@ -587,7 +615,8 @@
     if (confirm("Discard changes?")) window.location.href = "home.html";
   });
 
-  form?.addEventListener("submit", async (e) => {
+  let patientOpId = newOpId();
+  guardSubmit(form, async (e) => {
     e.preventDefault();
     if (!form.checkValidity()) { form.reportValidity(); return; }
 
@@ -615,7 +644,7 @@
         }
       }
 
-      await addDoc(collection(db, "patients"), {
+      await setDoc(doc(db, "patients", patientOpId), {
         name,
         phone,
         phoneKey: normalizePhone(phone),
@@ -625,6 +654,7 @@
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser?.uid || null,
       });
+      patientOpId = newOpId();   // fresh ticket for the next patient
 
       showToast(`Patient "${name}" saved.`);
       form.reset();
@@ -635,14 +665,16 @@
     }
   });
 
-  // --- Auth gate then initial load / search wiring
+  // wired once, outside the auth callback (that callback can fire more than once)
+  searchInput?.addEventListener("input", debouncedSearch);
+  modeRadios?.forEach((r) => r.addEventListener("change", debouncedSearch));
+
+  // --- Auth gate then initial load
   onAuthStateChanged(auth, async (user) => {
     try {
       if (!user) { await signInAnonymously(auth); return; } // will fire again with user
       // only start hitting Firestore after we have auth
       await refreshPatients();
-      searchInput?.addEventListener("input", debouncedSearch);
-      modeRadios?.forEach((r) => r.addEventListener("change", debouncedSearch));
     } catch (e) {
       console.error(e);
       showToast(`Auth failed: ${e.code || e.message}`);

@@ -91,7 +91,7 @@
       }
       .stats {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 12px;
       }
       .stat {
@@ -117,6 +117,9 @@
       }
       .net {
         color: #0b2447;
+      }
+      .supplies {
+        color: #b45309;
       }
       .table-wrap {
         border: 1px solid rgba(15, 23, 42, 0.06);
@@ -212,6 +215,10 @@
             <h3>Net</h3>
             <div class="amt net" id="sumNet">0.00</div>
           </div>
+          <div class="stat">
+            <h3>Supplies (20%)</h3>
+            <div class="amt supplies" id="sumSupplies">0.00</div>
+          </div>
         </div>
       </section>
 
@@ -282,9 +289,14 @@
       const sumInEl = document.getElementById("sumIn");
       const sumOutEl = document.getElementById("sumOut");
       const sumNetEl = document.getElementById("sumNet");
+      const sumSuppliesEl = document.getElementById("sumSupplies");
       const refreshBtn = document.getElementById("refreshBtn");
 
       // ---------- Utils ----------
+      // Supplies allowance, as a share of the net. Change here to change both
+      // the label and the figure.
+      const SUPPLIES_RATE = 0.20;
+
       const fmtAmt = (n) => (n < 0 ? "-" : "") + Math.abs(n).toFixed(2);
       const fmtDT = (d) => {
         const pad2 = (x) => String(x).padStart(2, "0");
@@ -344,6 +356,7 @@
         sumInEl.textContent = fmtAmt(sumIn);
         sumOutEl.textContent = fmtAmt(sumOut);
         sumNetEl.textContent = fmtAmt(net);
+        sumSuppliesEl.textContent = fmtAmt(net * SUPPLIES_RATE);
 
         // rows
         rows.innerHTML = "";
@@ -388,6 +401,9 @@
           } // will fire again with user
 
           // Only init once authenticated
+          document.querySelector("#sumSupplies")
+            .closest(".stat").querySelector("h3")
+            .textContent = `Supplies (${Math.round(SUPPLIES_RATE * 100)}%)`;
           monthEl.value = currentYM();
           refreshBtn.addEventListener("click", refresh);
           monthEl.addEventListener("change", refresh);

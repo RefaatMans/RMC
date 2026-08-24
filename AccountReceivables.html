@@ -238,7 +238,7 @@ tr.fully-paid {
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import {
     initializeFirestore, collection, addDoc, getDocs,
-    query, orderBy, serverTimestamp, updateDoc, doc
+    query, orderBy, serverTimestamp, updateDoc, doc, setDoc
   } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
   import {
     getAuth, signInAnonymously, onAuthStateChanged
@@ -261,6 +261,34 @@ tr.fully-paid {
     useFetchStreams: false,
   });
   const auth = getAuth(app);
+
+  /* ---------- Double-submit guard (prevents duplicate records) ---------- */
+  function guardSubmit(form, handler, busyLabel) {
+    if (!form) return;
+    var busy = false;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (busy) return;              // second click while the first is still running
+      busy = true;
+      const btns = Array.from(form.querySelectorAll('button[type="submit"]'));
+      const labels = btns.map((b) => b.textContent);
+      btns.forEach((b) => { b.disabled = true; b.textContent = busyLabel || 'Saving…'; });
+      try {
+        await handler(e);
+      } finally {
+        busy = false;
+        btns.forEach((b, i) => { b.disabled = false; b.textContent = labels[i]; });
+      }
+    });
+  }
+  // One-time write ticket used as the Firestore document ID, so a retried
+  // or duplicated write lands on the SAME doc instead of creating a new one.
+  function newOpId() {
+    return (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
 
   // ---- DOM refs ----
   const modal = document.getElementById("modal");
@@ -409,7 +437,8 @@ tr.fully-paid {
     } finally { input.disabled = false; }
   }
 
-  form.addEventListener("submit", async (e) => {
+  let recOpId = newOpId();
+  guardSubmit(form, async (e) => {
     e.preventDefault();
     if (!form.checkValidity()) return form.reportValidity();
     const payload = {
@@ -422,7 +451,8 @@ tr.fully-paid {
       createdAt: serverTimestamp(),
     };
     try {
-      await addDoc(collection(db, "receivables"), payload);
+      await setDoc(doc(db, "receivables", recOpId), payload);
+      recOpId = newOpId();   // fresh ticket for the next receivable
       closeModal(); await loadReceivables();
     } catch (err) { console.error(err); alert("Failed to save. Check console."); }
   });
