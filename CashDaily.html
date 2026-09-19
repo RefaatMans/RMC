@@ -5,6 +5,9 @@
   <link rel="icon" href="./assets/LogoCircle.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RMC — Daily Cash Report</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" />
+
   <style>
     :root{ --bg:#eaf4ff; --card:#fff; --primary:#1f6fff; --primary-600:#1859cc; --accent:#22c1ee; --text:#0f172a; --muted:#475569; --ring:rgba(31,111,255,.35); --shadow:0 10px 30px rgba(2,32,71,.08); --radius-xl:20px; --green:#16a34a; --red:#dc2626 }
     *{ box-sizing:border-box } html,body{ height:100% }
@@ -28,6 +31,13 @@
     thead th{ position:sticky; top:0; background:#f0f7ff; color:#0b2447; text-align:left; font-weight:800; border-bottom:1px solid rgba(15,23,42,.12); padding:10px 12px }
     tbody td{ padding:10px 12px; border-bottom:1px solid rgba(15,23,42,.06) }
     .empty{ text-align:center; color:var(--muted) }
+
+    /* Doctor filter */
+    .filter-doctor{ min-width:240px }
+    .ts-wrapper.filter-doctor{ min-width:240px }
+    .ts-control{ border-radius:12px !important; border:1px solid rgba(15,23,42,.12) !important; background:linear-gradient(180deg,#fff,#f0f7ff) !important; padding:8px 12px !important }
+    .ts-wrapper.focus .ts-control{ border-color:var(--primary) !important; box-shadow:0 0 0 4px var(--ring) !important }
+    .scope{ color:var(--muted); font-size:.85rem; margin-top:6px }
   </style>
 </head>
 <body>
@@ -41,8 +51,15 @@
       <div class="row">
         <label for="day">Date</label>
         <input id="day" type="date" />
+
+        <label for="doctorFilter" style="margin-left:8px">Doctor</label>
+        <select id="doctorFilter" class="filter-doctor">
+          <option value="">All doctors</option>
+        </select>
+
         <button id="refreshBtn" style="margin-left:auto; border:0; padding:10px 14px; border-radius:10px; font-weight:800; background:linear-gradient(135deg, var(--accent), var(--primary)); color:#fff; cursor:pointer">Refresh</button>
       </div>
+      <div class="scope" id="scopeNote">Showing all doctors</div>
     </section>
 
     <section class="card">
@@ -63,6 +80,8 @@
       </div>
     </section>
   </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
   <script type="module">
   // Optional: keep your own session check
@@ -100,6 +119,8 @@
   const sumNetEl = document.getElementById('sumNet');
   const sumSuppliesEl = document.getElementById('sumSupplies');
   const refreshBtn = document.getElementById('refreshBtn');
+  const doctorFilterEl = document.getElementById('doctorFilter');
+  const scopeNote = document.getElementById('scopeNote');
 
   // Supplies allowance, as a share of the net. Change here to change both the
   // label and the figure.
@@ -123,6 +144,62 @@
     const end   = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, 0,0,0,0);
     return [start, end];
   }
+  const byName = (a,b)=> (a.name||'').localeCompare(b.name||'', undefined, { sensitivity:'base' });
+
+  // ---------- Doctor filter ----------
+  let doctorTS;
+  // Every cash doc fetched for the selected date, before any doctor filtering.
+  let dayRows = [];
+
+  async function loadDoctorFilter(){
+    const s = await getDocs(collection(db, 'doctors'));
+    const doctors = s.docs.map(d => ({ id:d.id, ...d.data() })).sort(byName);
+
+    doctorFilterEl.innerHTML = '';
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'All doctors';
+    doctorFilterEl.appendChild(all);
+
+    for (const d of doctors){
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.name || '(no name)';
+      o.dataset.name = d.name || '';
+      doctorFilterEl.appendChild(o);
+    }
+
+    if (window.TomSelect){
+      doctorTS?.destroy();
+      doctorTS = new TomSelect('#doctorFilter', {
+        create: false,
+        allowEmptyOption: true,
+        searchField: ['text'],
+        sortField: { field:'text', direction:'asc' },
+        maxOptions: 5000,
+        placeholder: 'All doctors',
+        plugins: ['clear_button'],
+        onChange: () => render()
+      });
+    } else {
+      doctorFilterEl.addEventListener('change', render);
+    }
+  }
+
+  function currentDoctor(){
+    const id = doctorFilterEl.value;
+    if (!id) return null;
+    const opt = doctorFilterEl.options[doctorFilterEl.selectedIndex];
+    return { id, name: (opt?.dataset?.name || opt?.textContent || '').trim() };
+  }
+
+  // Match on doctorId when the cash doc carries one; fall back to the stored
+  // name so older entries written without an id still show up.
+  function matchesDoctor(x, f){
+    if (!f) return true;
+    if (x.doctorId) return x.doctorId === f.id;
+    return (x.doctorName || '').trim() === f.name;
+  }
 
   // ---------- Data ----------
   async function refresh(){
@@ -131,7 +208,9 @@
 
     const [start, end] = dayBounds(dateStr);
 
-    // NOTE: range filter + orderBy on the same field is required (done here)
+    // NOTE: range filter + orderBy on the same field is required (done here).
+    // The doctor filter is applied in memory afterwards, so no composite index
+    // is needed and switching doctors costs no extra reads.
     const snap = await getDocs(query(
       collection(db, 'cash'),
       where('date','>=', start),
@@ -139,13 +218,24 @@
       orderBy('date','asc')
     ));
 
-    const data = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    dayRows = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    render();
+  }
+
+  function render(){
+    const f = currentDoctor();
+    const data = dayRows.filter(x => matchesDoctor(x, f));
+
+    scopeNote.textContent = f
+      ? `Showing ${data.length} entr${data.length===1?'y':'ies'} for ${f.name}`
+      : `Showing all doctors — ${data.length} entr${data.length===1?'y':'ies'}`;
+
     // totals
     let sumIn=0, sumOut=0, net=0;
     data.forEach(x=>{
       if (x.type==='in')  sumIn  += Number(x.amount||0);
       if (x.type==='out') sumOut += Number(x.amount||0);
-      net += Number(x.signedAmount|| (x.type==='out' ? -Math.abs(x.amount||0) : Math.abs(x.amount||0)));
+      net += Number(x.signedAmount ?? (x.type==='out' ? -Math.abs(x.amount||0) : Math.abs(x.amount||0)));
     });
     sumInEl.textContent  = fmtAmt(sumIn);
     sumOutEl.textContent = fmtAmt(sumOut);
@@ -186,6 +276,8 @@
       dayEl.value = todayISO();
       refreshBtn.addEventListener('click', refresh);
       dayEl.addEventListener('change', refresh);
+
+      await loadDoctorFilter();
       await refresh();
 
     } catch (e) {
