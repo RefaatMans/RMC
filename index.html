@@ -303,6 +303,27 @@
         passEl.select();
       }
 
+      // Say what actually went wrong. A blocked read and a dead connection
+      // look the same from the outside otherwise, and the fixes are nothing
+      // alike.
+      function explain(err) {
+        const code = (err && (err.code || err.message)) || "";
+        console.error("Sign-in failed:", code, err);
+        if (/permission-denied|insufficient permissions/i.test(code)) {
+          return (
+            "The database refused the request. The security rules need to " +
+            "allow the 'users' collection."
+          );
+        }
+        if (/auth\/(operation-not-allowed|admin-restricted)/i.test(code)) {
+          return "Anonymous sign-in is turned off for this Firebase project.";
+        }
+        if (/auth\/network|unavailable|failed-precondition/i.test(code)) {
+          return "Couldn't reach the server. Check your connection.";
+        }
+        return `Sign-in failed (${code || "unknown error"}). See the console.`;
+      }
+
       async function ensureAuthed() {
         if (auth.currentUser) return auth.currentUser;
         const cred = await signInAnonymously(auth);
@@ -381,8 +402,7 @@
 
           fail("Invalid credentials. Please try again.");
         } catch (err) {
-          console.error(err);
-          fail("Couldn't reach the server. Check your connection.");
+          fail(explain(err));
         } finally {
           busy = false;
           submitBtn.disabled = false;

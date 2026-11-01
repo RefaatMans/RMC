@@ -191,6 +191,20 @@
           ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
         );
 
+      // A blocked write and a dead connection look the same from the outside,
+      // and the fixes are nothing alike — so name the real cause.
+      function explain(err, what) {
+        const code = (err && (err.code || err.message)) || "";
+        console.error(what, code, err);
+        if (/permission-denied|insufficient permissions/i.test(code)) {
+          return "The database refused it. The security rules need to allow the 'users' collection.";
+        }
+        if (/unavailable|network/i.test(code)) {
+          return "Couldn't reach the server. Check your connection.";
+        }
+        return `${what} (${code || "unknown error"}). See the console.`;
+      }
+
       /* ------------------------------------------------------------ load */
       async function load() {
         await ensureAuthed();
@@ -384,8 +398,7 @@
           closeModal();
           await load();
         } catch (err) {
-          console.error(err);
-          showToast("Couldn't save the user. Check the console.");
+          showToast(explain(err, "Couldn't save the user"));
         } finally {
           busy = false;
           saveBtn.disabled = false;
@@ -416,8 +429,7 @@
           showToast(turningOff ? "User disabled." : "User enabled.");
           await load();
         } catch (err) {
-          console.error(err);
-          showToast("Couldn't update the user.");
+          showToast(explain(err, "Couldn't update the user"));
         }
       }
 
@@ -446,8 +458,7 @@
           showToast("User deleted.");
           await load();
         } catch (err) {
-          console.error(err);
-          showToast("Couldn't delete the user.");
+          showToast(explain(err, "Couldn't delete the user"));
         }
       }
 
@@ -479,8 +490,7 @@
           showToast("Starting accounts created.");
           await load();
         } catch (err) {
-          console.error(err);
-          showToast("Couldn't create the accounts. Check the console.");
+          showToast(explain(err, "Couldn't create the accounts"));
         } finally {
           btn.disabled = false;
           btn.textContent = "Create starting accounts";
@@ -490,8 +500,8 @@
       document.getElementById("refreshBtn").addEventListener("click", load);
 
       load().catch((err) => {
-        console.error(err);
-        rowsEl.innerHTML = `<tr><td colspan="7" class="empty">Couldn't load users.</td></tr>`;
+        const msg = explain(err, "Couldn't load users");
+        rowsEl.innerHTML = `<tr><td colspan="7" class="empty">${esc(msg)}</td></tr>`;
         countEl.textContent = "—";
       });
     </script>
