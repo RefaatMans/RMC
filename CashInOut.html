@@ -196,11 +196,10 @@ body.mode-out .card {
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
   <!-- Firebase + page script -->
+ <script src="./js/rmc-auth.js"></script>
  <script type="module">
-  // Optional: keep your own session check
-  if (sessionStorage.getItem('rmcAuth') !== '1') {
-    window.location.replace('index.html');
-  }
+  // Session check
+  if (!RMC.requireAuth()) throw new Error('not signed in');
 
   // ---------- Searchable selects ----------
   let patientTS, doctorTS;
@@ -315,6 +314,15 @@ body.mode-out .card {
     return `${y}-${m}-${dd}`;
   };
 
+  // The date picker only carries a day, which used to store every entry at
+  // midnight. Stamp the real clock time onto the chosen day so the reports can
+  // show when the transaction actually happened.
+  function stampedDate(dateStr){
+    const now = new Date();
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+  }
+
   // ---------- Data loaders ----------
   async function loadPatients(){
     const snap = await getDocs(collection(db, 'patients'));
@@ -389,10 +397,12 @@ body.mode-out .card {
         amount,
         signedAmount: entryType==='out' ? -amount : amount,
         medicalAct,
-        date: new Date(dateStr),
+        date: stampedDate(dateStr),
         patientId, patientName,
         doctorId, doctorName,
-        createdAt: serverTimestamp()
+        appointmentId: null,          // free-standing entry, not tied to a visit
+        createdAt: serverTimestamp(),
+        ...RMC.stamp()
       });
       cashOpId = newOpId();   // fresh ticket for the next entry
       showToast('Entry saved.');

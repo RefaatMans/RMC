@@ -93,7 +93,9 @@
     <button id="logoutBtn" class="logout" title="Sign out">Logout</button>
     <img class="logo" src="./assets/LogoCircle.png" alt="Ruwais Medical Center logo">
     <h1 class="brand-name">Ruwais Medical Center</h1>
-    <p class="tagline">Choose an app to continue.</p>
+    <p class="tagline">
+      Signed in as <strong id="whoAmI">—</strong>. Choose an app to continue.
+    </p>
   </header>
 
   <main class="wrap" role="main" aria-label="Apps">
@@ -119,6 +121,17 @@
           </div>
         </a>
       </div>
+
+      <!-- Users (administrators only) -->
+      <div class="card" id="usersCard" style="display:none">
+        <a class="app" href="users.html">
+          <div class="icon" aria-hidden="true">👥</div>
+          <div class="info">
+            <div class="title">Users</div>
+            <div class="hint">Add staff accounts and set their passwords.</div>
+          </div>
+        </a>
+      </div>
     </section>
   </main>
 
@@ -126,22 +139,23 @@
     <small>© <span id="year"></span> RMC Medical Center</small>
   </footer>
 
+  <script src="./js/rmc-auth.js"></script>
   <script>
     // Block access if not logged in
-    if (sessionStorage.getItem('rmcAuth') !== '1') {
-      window.location.replace('index.html');
+    if (!RMC.requireAuth()) throw new Error('not signed in');
+
+    RMC.paintWhoAmI('#whoAmI');
+
+    // The Users tile is only for administrators.
+    if (RMC.currentUser().role === 'admin') {
+      document.getElementById('usersCard').style.display = '';
     }
 
     // Footer year
     document.getElementById("year").textContent = new Date().getFullYear();
 
     // Logout handler
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-      sessionStorage.removeItem('rmcAuth');
-      sessionStorage.removeItem('rmcUser');
-      sessionStorage.removeItem('rmcLoginAt');
-      window.location.replace('index.html');
-    });
+    document.getElementById('logoutBtn').addEventListener('click', () => RMC.signOut());
   </script>
 </body>
 </html>

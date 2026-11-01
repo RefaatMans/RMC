@@ -228,11 +228,10 @@ tr.fully-paid {
       </div>
     </div>
 
+  <script src="./js/rmc-auth.js"></script>
   <script type="module">
   // Gate to your own session flag
-  if (sessionStorage.getItem("rmcAuth") !== "1") {
-    window.location.replace("index.html");
-  }
+  if (!RMC.requireAuth()) throw new Error("not signed in");
 
   // Firebase SDKs
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -406,7 +405,7 @@ tr.fully-paid {
 
     input.disabled = true;
     try {
-      await updateDoc(doc(db, "receivables", id), { paid: newVal, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "receivables", id), { paid: newVal, updatedAt: serverTimestamp(), ...RMC.stamp() });
       input.setAttribute("value", String(newVal));
       await loadReceivables();
     } catch (err) {
@@ -429,7 +428,7 @@ tr.fully-paid {
 
     input.disabled = true;
     try {
-      await updateDoc(doc(db, "receivables", id), { lab: newVal, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "receivables", id), { lab: newVal, updatedAt: serverTimestamp(), ...RMC.stamp() });
       input.setAttribute("value", String(newVal));
       await loadReceivables(); // refresh to recalc 40%/60%
     } catch (err) {
@@ -449,6 +448,7 @@ tr.fully-paid {
       paid:    Number(document.getElementById("paid").value   || 0),
       lab:     Number(document.getElementById("lab").value    || 0),
       createdAt: serverTimestamp(),
+      ...RMC.stamp(),
     };
     try {
       await setDoc(doc(db, "receivables", recOpId), payload);

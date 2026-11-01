@@ -235,12 +235,47 @@
       </div>
     </main>
 
-    <script>
+    <script src="./js/rmc-auth.js"></script>
+    <script type="module">
+      // ---------- Firebase ----------
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore,
+        collection,
+        doc,
+        getDoc,
+        getDocs,
+        query,
+        limit,
+        updateDoc,
+        serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth,
+        signInAnonymously,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCy2-qGCMMlNsSuKrqSVUBELsiwQXUN19w",
+        authDomain: "rmc-db-486f0.firebaseapp.com",
+        projectId: "rmc-db-486f0",
+        storageBucket: "rmc-db-486f0.firebasestorage.app",
+        messagingSenderId: "711840343507",
+        appId: "1:711840343507:web:21bf0e1c9448072ce47b26",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+      const auth = getAuth(app);
+
       // ===== Config =====
       const DEST_URL = "main.html"; // where to go after login
 
       // If already logged in, go to main
-      if (sessionStorage.getItem("rmcAuth") === "1") {
+      if (RMC.isSignedIn()) {
         window.location.replace(DEST_URL);
       }
 
@@ -250,6 +285,7 @@
       const userEl = document.getElementById("username");
       const passEl = document.getElementById("password");
       const togglePwd = document.getElementById("togglePwd");
+      const submitBtn = form.querySelector('button[type="submit"]');
 
       // Show/Hide password
       togglePwd.addEventListener("click", () => {
@@ -260,27 +296,98 @@
         passEl.focus();
       });
 
-      // Submit
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        errorBox.classList.remove("show");
-
-        const username = (userEl.value || "").trim();
-        const password = (passEl.value || "").trim();
-
-        // Hardcoded check
-        if (username === "admin" && password === "RMC123") {
-          sessionStorage.setItem("rmcAuth", "1");
-          sessionStorage.setItem("rmcUser", "admin");
-          sessionStorage.setItem("rmcLoginAt", String(Date.now()));
-          window.location.replace(DEST_URL);
-          return;
-        }
-
-        // Wrong creds
+      function fail(msg) {
+        errorBox.textContent = msg || "Invalid credentials. Please try again.";
         errorBox.classList.add("show");
         passEl.focus();
         passEl.select();
+      }
+
+      async function ensureAuthed() {
+        if (auth.currentUser) return auth.currentUser;
+        const cred = await signInAnonymously(auth);
+        return cred.user;
+      }
+
+      // The built-in admin only works while the users collection is still
+      // empty, so it is a way in to create the first accounts and not a
+      // permanent back door.
+      async function bootstrapAdmin(username, password) {
+        if (username.toLowerCase() !== "admin" || password !== "RMC123") {
+          return false;
+        }
+        const any = await getDocs(query(collection(db, "users"), limit(1)));
+        return any.empty;
+      }
+
+      // Submit
+      let busy = false;
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        errorBox.classList.remove("show");
+
+        const username = (userEl.value || "").trim();
+        const password = passEl.value || "";
+        if (!username || !password) {
+          fail("Please enter a username and password.");
+          return;
+        }
+
+        busy = true;
+        const label = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Checking…";
+
+        try {
+          await ensureAuthed();
+          const snap = await getDoc(doc(db, "users", RMC.userDocId(username)));
+
+          if (snap.exists()) {
+            const u = snap.data();
+            if (u.active === false) {
+              fail("This account is disabled. Ask an administrator.");
+              return;
+            }
+            const ok = await RMC.verifyPassword(password, u);
+            if (!ok) {
+              fail("Invalid credentials. Please try again.");
+              return;
+            }
+            RMC.signIn({
+              id: snap.id,
+              username: u.username || username,
+              name: u.displayName || u.username || username,
+              role: u.role || "user",
+            });
+            // Best effort — never block the sign-in on it.
+            await updateDoc(doc(db, "users", snap.id), {
+              lastLoginAt: serverTimestamp(),
+            }).catch((e) => console.warn("lastLoginAt not recorded", e));
+            window.location.replace(DEST_URL);
+            return;
+          }
+
+          if (await bootstrapAdmin(username, password)) {
+            RMC.signIn({
+              id: "admin",
+              username: "admin",
+              name: "admin",
+              role: "admin",
+            });
+            window.location.replace(DEST_URL);
+            return;
+          }
+
+          fail("Invalid credentials. Please try again.");
+        } catch (err) {
+          console.error(err);
+          fail("Couldn't reach the server. Check your connection.");
+        } finally {
+          busy = false;
+          submitBtn.disabled = false;
+          submitBtn.textContent = label;
+        }
       });
     </script>
   </body>

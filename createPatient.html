@@ -404,11 +404,10 @@
 
     <div class="toast" id="toast"></div>
 
+   <script src="./js/rmc-auth.js"></script>
    <script type="module">
-  // Optional: your own session gate
-  if (sessionStorage.getItem("rmcAuth") !== "1") {
-    window.location.replace("index.html");
-  }
+  // Session gate
+  if (!RMC.requireAuth()) throw new Error("not signed in");
 
   // ---------- Firebase ----------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -653,6 +652,7 @@
         numberOfVisits: 0,
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser?.uid || null,
+        ...RMC.stamp(),
       });
       patientOpId = newOpId();   // fresh ticket for the next patient
 

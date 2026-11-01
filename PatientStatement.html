@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — Patient Statement</title>
+    <link rel="stylesheet" href="./css/rmc.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" />
+    <style>
+      .patient-head {
+        display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: baseline;
+        padding-bottom: 10px; margin-bottom: 4px;
+        border-bottom: 1px solid var(--grid);
+      }
+      .patient-head .pname { font-size: 1.25rem; font-weight: 900; color: var(--primary-600); }
+      .patient-head .meta { color: var(--muted); font-size: .92rem; }
+      .patient-head .meta strong { color: var(--text); }
+      .section-title {
+        font-weight: 900; color: var(--primary-600); margin: 0 0 8px; font-size: 1.02rem;
+      }
+      .ts-wrapper { min-width: 260px; }
+      .bal-0 { color: var(--green); font-weight: 800; }
+      .bal-due { color: var(--amber); font-weight: 800; }
+      .bal-over { color: var(--primary-600); font-weight: 800; }
+      .table-wrap { max-height: none; }
+
+      @media print {
+        .header, .toolbar, footer, .no-print { display: none !important; }
+        body { background: #fff; }
+        .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+        .wrap { margin: 0; }
+        .table-wrap { max-height: none; overflow: visible; border: 0; }
+        thead th { position: static; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand">
+        <img src="./assets/LogoCircle.png" alt="Logo" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <div class="header-right">
+        <span class="whoami">Signed in as <strong id="whoAmI">—</strong></span>
+        <a class="back" href="cashhome.html" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back
+        </a>
+      </div>
+    </header>
+
+    <main class="wrap" role="main">
+      <section class="hero no-print">
+        <h1>Patient Statement</h1>
+        <p>Everything on one patient — their appointments, what was charged, and every payment.</p>
+      </section>
+
+      <section class="card no-print">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <div class="field">
+              <label for="patient">Patient</label>
+              <select id="patient">
+                <option value="" selected disabled>Loading patients…</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="from">From</label>
+              <input id="from" type="date" />
+            </div>
+            <div class="field">
+              <label for="to">To</label>
+              <input id="to" type="date" />
+            </div>
+          </div>
+          <div class="toolbar-group">
+            <button class="btn btn-secondary" id="clearDates">All dates</button>
+            <button class="btn btn-secondary" id="printBtn">Print</button>
+          </div>
+        </div>
+        <div class="count" id="scopeNote">Pick a patient to begin.</div>
+      </section>
+
+      <div id="statement" style="display: none">
+        <section class="card" style="margin-top: 16px">
+          <div class="patient-head">
+            <span class="pname" id="pName">—</span>
+            <span class="meta">File # <strong id="pFile">—</strong></span>
+            <span class="meta">Mobile <strong id="pPhone">—</strong></span>
+            <span class="meta">Statement generated <strong id="pGenerated">—</strong></span>
+          </div>
+
+          <div class="stats" style="margin-top: 14px">
+            <div class="stat"><h3>Appointments</h3><div class="val" id="sCount">0</div></div>
+            <div class="stat"><h3>Total charged</h3><div class="val" id="sCharged">0.00</div></div>
+            <div class="stat"><h3>Paid in</h3><div class="val in" id="sIn">0.00</div></div>
+            <div class="stat"><h3>Refunded out</h3><div class="val out" id="sOut">0.00</div></div>
+            <div class="stat"><h3>Balance due</h3><div class="val due" id="sBalance">0.00</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">Appointments</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 110px">Date</th>
+                  <th style="width: 82px">Time</th>
+                  <th>Doctor</th>
+                  <th style="width: 100px" class="right">Charged</th>
+                  <th style="width: 90px" class="right">Paid</th>
+                  <th style="width: 95px" class="right">Balance</th>
+                  <th style="width: 90px">Status</th>
+                  <th>Comment</th>
+                </tr>
+              </thead>
+              <tbody id="apptRows">
+                <tr><td colspan="8" class="empty">—</td></tr>
+              </tbody>
+              <tfoot id="apptFoot" style="display: none">
+                <tr>
+                  <td colspan="3">Totals</td>
+                  <td class="right" id="aCharged">0.00</td>
+                  <td class="right" id="aPaid">0.00</td>
+                  <td class="right" id="aBal">0.00</td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">Payments &amp; transactions</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 180px">Date / time</th>
+                  <th style="width: 70px">Type</th>
+                  <th style="width: 100px" class="right">Amount</th>
+                  <th>Notes</th>
+                  <th>Doctor</th>
+                  <th style="width: 150px">Appointment</th>
+                  <th style="width: 110px">Recorded by</th>
+                </tr>
+              </thead>
+              <tbody id="cashRows">
+                <tr><td colspan="7" class="empty">—</td></tr>
+              </tbody>
+              <tfoot id="cashFoot" style="display: none">
+                <tr>
+                  <td colspan="2">Net collected</td>
+                  <td class="right" id="cNet">0.00</td>
+                  <td colspan="4"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <footer class="no-print"><small>&copy; <span id="year"></span> RMC Medical Center</small></footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script src="./js/rmc-auth.js"></script>
+    <script src="./js/rmc-helpers.js"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore, collection, getDocs, query, where,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth, signInAnonymously,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+      const app = initializeApp(RMCH.firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+      const auth = getAuth(app);
+
+      // Firestore is behind rules that expect a signed-in (anonymous) user.
+      let authPromise = null;
+      function ensureAuthed() {
+        if (auth.currentUser) return Promise.resolve(auth.currentUser);
+        if (!authPromise) {
+          authPromise = signInAnonymously(auth)
+            .then((c) => c.user)
+            .catch((e) => { authPromise = null; throw e; });
+        }
+        return authPromise;
+      }
+
+      const {
+        toJsDate, fmtMoney, fmtDate, fmtTime, fmtDateTime, byName,
+        cashMoment, showToast,
+      } = RMCH;
+
+      if (!RMC.requireAuth()) throw new Error("not signed in");
+      RMC.paintWhoAmI("#whoAmI");
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      const patientSel = document.getElementById("patient");
+      const fromEl = document.getElementById("from");
+      const toEl = document.getElementById("to");
+      const scopeNote = document.getElementById("scopeNote");
+      const statementEl = document.getElementById("statement");
+      const apptRows = document.getElementById("apptRows");
+      const cashRows = document.getElementById("cashRows");
+      const apptFoot = document.getElementById("apptFoot");
+      const cashFoot = document.getElementById("cashFoot");
+
+      let patientsById = {};
+      let patientTS;
+      let allAppts = [];  // unfiltered, for the selected patient
+      let allCash = [];
+
+      const esc = (s) =>
+        String(s ?? "").replace(/[&<>"']/g, (c) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+        );
+
+      /* ------------------------------------------------------- patients */
+      async function loadPatients() {
+        const snap = await getDocs(collection(db, "patients"));
+        const patients = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
+        patientsById = Object.fromEntries(patients.map((p) => [p.id, p]));
+
+        patientSel.innerHTML = "";
+        const ph = document.createElement("option");
+        ph.value = "";
+        ph.disabled = true;
+        ph.selected = true;
+        ph.textContent = patients.length ? "Select a patient" : "No patients found";
+        patientSel.appendChild(ph);
+        for (const p of patients) {
+          const o = document.createElement("option");
+          o.value = p.id;
+          const phone = (p.phone ?? "").toString().trim();
+          o.textContent = `${p.name || "(no name)"}${phone ? " — " + phone : ""}${
+            p.fileNumber ? " — #" + p.fileNumber : ""
+          }`;
+          patientSel.appendChild(o);
+        }
+        patientSel.disabled = patients.length === 0;
+
+        if (window.TomSelect) {
+          patientTS?.destroy();
+          patientTS = new TomSelect("#patient", {
+            create: false, allowEmptyOption: true, searchField: ["text"],
+            sortField: { field: "text", direction: "asc" }, maxOptions: 5000,
+            plugins: ["clear_button"],
+            onChange: (v) => (v ? loadStatement(v) : clearStatement()),
+          });
+        } else {
+          patientSel.addEventListener("change", () => loadStatement(patientSel.value));
+        }
+      }
+
+      /* ------------------------------------------------------ statement */
+      function clearStatement() {
+        statementEl.style.display = "none";
+        scopeNote.textContent = "Pick a patient to begin.";
+      }
+
+      async function loadStatement(patientId) {
+        if (!patientId) return clearStatement();
+        scopeNote.textContent = "Loading…";
+        try {
+          await ensureAuthed();
+          const [aSnap, cSnap] = await Promise.all([
+            getDocs(query(collection(db, "appointments"), where("patientId", "==", patientId))),
+            getDocs(query(collection(db, "cash"), where("patientId", "==", patientId))),
+          ]);
+          allAppts = aSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (toJsDate(b.startAt) || 0) - (toJsDate(a.startAt) || 0));
+          allCash = cSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (cashMoment(b) || 0) - (cashMoment(a) || 0));
+          render();
+        } catch (err) {
+          console.error(err);
+          scopeNote.textContent = "Couldn't load this patient's records.";
+          showToast("Couldn't load the statement.");
+        }
+      }
+
+      // Inclusive date window; empty inputs mean no bound.
+      function inRange(d) {
+        if (!d) return true;
+        const from = fromEl.value ? new Date(fromEl.value + "T00:00:00") : null;
+        const to = toEl.value ? new Date(toEl.value + "T23:59:59.999") : null;
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        return true;
+      }
+
+      function render() {
+        const patientId = patientSel.value;
+        const p = patientsById[patientId] || {};
+
+        const appts = allAppts.filter((a) => inRange(toJsDate(a.startAt)));
+        const cash = allCash.filter((c) => inRange(cashMoment(c)));
+
+        // Group cash by appointment so each visit shows what was paid on it.
+        const paidByAppt = new Map();
+        for (const c of cash) {
+          if (!c.appointmentId) continue;
+          const a = Math.abs(Number(c.amount || 0));
+          const signed = c.type === "out" ? -a : a;
+          paidByAppt.set(c.appointmentId, (paidByAppt.get(c.appointmentId) || 0) + signed);
+        }
+
+        /* ---- header ---- */
+        document.getElementById("pName").textContent = p.name || "(no name)";
+        document.getElementById("pFile").textContent = p.fileNumber ?? "—";
+        document.getElementById("pPhone").textContent = (p.phone ?? "—") || "—";
+        document.getElementById("pGenerated").textContent = fmtDateTime(new Date());
+
+        /* ---- totals ---- */
+        let totalCharged = 0, totalIn = 0, totalOut = 0;
+        for (const a of appts) if (a.charge != null) totalCharged += Number(a.charge);
+        for (const c of cash) {
+          const amt = Math.abs(Number(c.amount || 0));
+          if (c.type === "out") totalOut += amt;
+          else totalIn += amt;
+        }
+        const net = totalIn - totalOut;
+        const balance = totalCharged - net;
+
+        document.getElementById("sCount").textContent = String(appts.length);
+        document.getElementById("sCharged").textContent = fmtMoney(totalCharged);
+        document.getElementById("sIn").textContent = fmtMoney(totalIn);
+        document.getElementById("sOut").textContent = fmtMoney(totalOut);
+        const balEl = document.getElementById("sBalance");
+        balEl.textContent = fmtMoney(balance);
+        balEl.className =
+          "val " + (Math.abs(balance) < 0.005 ? "in" : balance > 0 ? "due" : "out");
+
+        const rangeNote =
+          fromEl.value || toEl.value
+            ? ` • ${fromEl.value || "start"} to ${toEl.value || "today"}`
+            : " • all dates";
+        scopeNote.textContent = `${p.name || "Patient"} — ${appts.length} appointment${
+          appts.length === 1 ? "" : "s"
+        }, ${cash.length} transaction${cash.length === 1 ? "" : "s"}${rangeNote}`;
+
+        /* ---- appointments table ---- */
+        apptRows.innerHTML = "";
+        if (!appts.length) {
+          apptRows.innerHTML = `<tr><td colspan="8" class="empty">No appointments in this period.</td></tr>`;
+          apptFoot.style.display = "none";
+        } else {
+          let aCharged = 0, aPaid = 0, aBal = 0;
+          for (const a of appts) {
+            const d = toJsDate(a.startAt);
+            const charge = a.charge == null ? null : Number(a.charge);
+            const paid = paidByAppt.get(a.id) || 0;
+            const bal = charge == null ? null : charge - paid;
+            if (charge != null) {
+              aCharged += charge;
+              aBal += bal;
+            }
+            aPaid += paid;
+
+            const status =
+              charge == null
+                ? '<span class="tag off">No charge</span>'
+                : Math.abs(bal) < 0.005
+                ? '<span class="tag paid">Settled</span>'
+                : bal > 0
+                ? '<span class="tag due">Due</span>'
+                : '<span class="tag admin">Overpaid</span>';
+
+            apptRows.insertAdjacentHTML(
+              "beforeend",
+              `<tr>
+                <td class="nowrap">${fmtDate(d)}</td>
+                <td class="nowrap">${fmtTime(d)}</td>
+                <td>${esc(a.doctorName || "—")}</td>
+                <td class="right">${charge == null ? '<span class="muted">—</span>' : fmtMoney(charge)}</td>
+                <td class="right ${paid ? "amt-in" : "muted"}">${fmtMoney(paid)}</td>
+                <td class="right">${
+                  bal == null
+                    ? '<span class="muted">—</span>'
+                    : `<span class="${
+                        Math.abs(bal) < 0.005 ? "bal-0" : bal > 0 ? "bal-due" : "bal-over"
+                      }">${fmtMoney(bal)}</span>`
+                }</td>
+                <td>${status}</td>
+                <td>${esc(a.comment || "")}</td>
+              </tr>`
+            );
+          }
+          document.getElementById("aCharged").textContent = fmtMoney(aCharged);
+          document.getElementById("aPaid").textContent = fmtMoney(aPaid);
+          document.getElementById("aBal").textContent = fmtMoney(aBal);
+          apptFoot.style.display = "";
+        }
+
+        /* ---- transactions table ---- */
+        const apptById = Object.fromEntries(allAppts.map((a) => [a.id, a]));
+        cashRows.innerHTML = "";
+        if (!cash.length) {
+          cashRows.innerHTML = `<tr><td colspan="7" class="empty">No transactions in this period.</td></tr>`;
+          cashFoot.style.display = "none";
+        } else {
+          for (const c of cash) {
+            const amt = Math.abs(Number(c.amount || 0));
+            const linked = c.appointmentId ? apptById[c.appointmentId] : null;
+            const apptLabel = !c.appointmentId
+              ? '<span class="muted">Not linked</span>'
+              : linked
+              ? `<span class="tag appt">${fmtDate(toJsDate(linked.startAt))} ${fmtTime(
+                  toJsDate(linked.startAt)
+                )}</span>`
+              : `<span class="tag appt">${
+                  c.appointmentAt ? fmtDate(toJsDate(c.appointmentAt)) : "linked"
+                }</span>`;
+
+            cashRows.insertAdjacentHTML(
+              "beforeend",
+              `<tr>
+                <td class="nowrap">${fmtDateTime(cashMoment(c))}</td>
+                <td><span class="tag ${c.type === "out" ? "out" : "in"}">${
+                  c.type === "out" ? "OUT" : "IN"
+                }</span></td>
+                <td class="right ${c.type === "out" ? "amt-out" : "amt-in"}">${fmtMoney(amt)}</td>
+                <td>${esc(c.medicalAct || "")}</td>
+                <td>${esc(c.doctorName || "—")}</td>
+                <td class="nowrap">${apptLabel}</td>
+                <td>${esc(c.recordedByName || "—")}</td>
+              </tr>`
+            );
+          }
+          document.getElementById("cNet").textContent = fmtMoney(net);
+          cashFoot.style.display = "";
+        }
+
+        statementEl.style.display = "";
+      }
+
+      /* ----------------------------------------------------------- init */
+      fromEl.addEventListener("change", () => patientSel.value && render());
+      toEl.addEventListener("change", () => patientSel.value && render());
+      document.getElementById("clearDates").addEventListener("click", () => {
+        fromEl.value = "";
+        toEl.value = "";
+        if (patientSel.value) render();
+      });
+      document.getElementById("printBtn").addEventListener("click", () => {
+        if (!patientSel.value) {
+          showToast("Pick a patient first.");
+          return;
+        }
+        window.print();
+      });
+
+      (async () => {
+        try {
+          await ensureAuthed();
+          await loadPatients();
+        } catch (err) {
+          console.error(err);
+          scopeNote.textContent = "Couldn't connect. Check your connection.";
+        }
+      })();
+    </script>
+  </body>
+</html>

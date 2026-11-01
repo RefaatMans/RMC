@@ -367,11 +367,10 @@
       Doctor saved successfully.
     </div>
 
+    <script src="./js/rmc-auth.js"></script>
     <script type="module">
-      // Optional: keep your own session gate
-      if (sessionStorage.getItem("rmcAuth") !== "1") {
-        window.location.replace("index.html");
-      }
+      // Session gate
+      if (!RMC.requireAuth()) throw new Error("not signed in");
 
       // ---------- Firebase ----------
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -532,6 +531,7 @@
             phoneKey,
             createdAt: serverTimestamp(),
             createdBy: auth.currentUser?.uid || null, // helpful for auditing later
+            ...RMC.stamp(),
           });
           doctorOpId = newOpId();   // fresh ticket for the next doctor
 
