@@ -334,7 +334,7 @@
       // empty, so it is a way in to create the first accounts and not a
       // permanent back door.
       async function bootstrapAdmin(username, password) {
-        if (username.toLowerCase() !== "admin" || password !== "RMC123") {
+        if (username.toLowerCase() !== "admin" || password !== "RMC123$$") {
           return false;
         }
         const any = await getDocs(query(collection(db, "users"), limit(1)));
