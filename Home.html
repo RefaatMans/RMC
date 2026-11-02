@@ -256,13 +256,15 @@
           </button>
         </div>
 
-        <!-- <div class="card">
-          <button class="action" id="btnCash">
-            <span class="icon">💳</span>
-            <span class="label">Cash In / Out</span>
-            <span class="hint">Record payments received and expenses.</span>
+        <div class="card">
+          <button class="action" id="btnStatement">
+            <span class="icon">📋</span>
+            <span class="label">Patient Statement</span>
+            <span class="hint"
+              >All of one patient's appointments and payments, with totals.</span
+            >
           </button>
-        </div> -->
+        </div>
       </section>
     </main>
 
@@ -270,11 +272,9 @@
       <small>© <span id="year"></span> RMC Medical Center</small>
     </footer>
 
+    <script src="./js/rmc-auth.js"></script>
     <script>
-      if (sessionStorage.getItem('rmcAuth') !== '1') {
-    window.location.replace('index.html');
-  }
-      const go = (path) => alert(`Navigate to: ${path}`);
+      if (!RMC.requireAuth()) throw new Error('not signed in');
       document
         .getElementById("btnCreateDoctor")
         .addEventListener(
@@ -292,6 +292,12 @@
         .addEventListener(
           "click",
           () => (window.location.href = "createAppointment.html")
+        );
+      document
+        .getElementById("btnStatement")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "PatientStatement.html")
         );
 
       document.getElementById("year").textContent = new Date().getFullYear();

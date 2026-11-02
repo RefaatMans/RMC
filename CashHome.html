@@ -202,6 +202,22 @@
             <span class="hint">Totals & entries for a selected month.</span>
           </button>
         </div>
+        <div class="card">
+          <button class="action" id="btnApptCash">
+            <span class="icon">🩹</span>
+            <span class="label">Appointment Cash</span>
+            <span class="hint">Each appointment, what it was charged, and the cash in/out on it.</span>
+          </button>
+        </div>
+
+        <div class="card">
+          <button class="action" id="btnStatement">
+            <span class="icon">📋</span>
+            <span class="label">Patient Statement</span>
+            <span class="hint">All of one patient's appointments and payments, with totals.</span>
+          </button>
+        </div>
+
         <div class="card center-2">
   <button class="action" id="btnReceivables">
     <span class="icon">🧾</span>
@@ -216,11 +232,22 @@
       <small>© <span id="year"></span> RMC Medical Center</small>
     </footer>
 
+    <script src="./js/rmc-auth.js"></script>
     <script>
-      if (sessionStorage.getItem("rmcAuth") !== "1") {
-        window.location.replace("index.html");
-      }
+      if (!RMC.requireAuth()) throw new Error("not signed in");
       document.getElementById("year").textContent = new Date().getFullYear();
+      document
+        .getElementById("btnApptCash")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "AppointmentCash.html")
+        );
+      document
+        .getElementById("btnStatement")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "PatientStatement.html")
+        );
       document
         .getElementById("btnCash")
         .addEventListener(
