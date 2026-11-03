@@ -231,6 +231,27 @@
       .toast.show {
         display: block;
       }
+      /* Inline rename in the patients list. File # and phone stay read-only. */
+      .name-input {
+        width: 100%;
+        padding: 5px 7px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        font: inherit;
+        color: inherit;
+        outline: none;
+      }
+      .name-input:hover {
+        border-color: rgba(15, 23, 42, 0.14);
+        background: #fff;
+      }
+      .name-input:focus {
+        border-color: var(--primary);
+        background: #fff;
+        box-shadow: 0 0 0 3px var(--ring);
+      }
+      .name-input:disabled { opacity: 0.6; }
     </style>
   </head>
   <body>
@@ -414,7 +435,7 @@
   import {
     initializeFirestore,
     collection, addDoc, getDocs, query, where,
-    orderBy, startAt, endAt, limit, serverTimestamp, doc, setDoc
+    orderBy, startAt, endAt, limit, serverTimestamp, doc, setDoc, updateDoc
   } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
   import {
     getAuth, signInAnonymously, onAuthStateChanged
@@ -507,11 +528,109 @@
     for (const p of sorted) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${p.name || "—"}</td>
-        <td>${p.phone || "—"}</td>
-        <td>${p.fileNumber ?? "—"}</td>
+        <td><input class="name-input" type="text" value="${escAttr(p.name || "")}"
+             placeholder="(no name)" aria-label="Patient name"></td>
+        <td>${escHtml(p.phone || "—")}</td>
+        <td>${escHtml(p.fileNumber ?? "—")}</td>
       `;
+      const input = tr.querySelector(".name-input");
+      input.addEventListener("change", () => saveName(p, input));
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+        if (e.key === "Escape") { input.value = p.name || ""; input.blur(); }
+      });
       patientsBody.appendChild(tr);
+    }
+  }
+
+  // The page's own auth gate runs via onAuthStateChanged; renaming can happen
+  // any time after that, so give it a promise to await.
+  let authPromise = null;
+  function ensureAuthed() {
+    if (auth.currentUser) return Promise.resolve(auth.currentUser);
+    if (!authPromise) {
+      authPromise = signInAnonymously(auth)
+        .then((c) => c.user)
+        .catch((e) => { authPromise = null; throw e; });
+    }
+    return authPromise;
+  }
+
+  const escHtml = (v) =>
+    String(v == null ? "" : v).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    );
+  const escAttr = escHtml;
+
+  // Rename an existing patient. The file number and phone are deliberately
+  // left alone — only the name changes.
+  async function saveName(p, input) {
+    const next = (input.value || "").trim();
+    const before = (p.name || "").trim();
+    if (next === before) return;
+    if (!next) {
+      showToast("A patient needs a name.");
+      input.value = before;
+      return;
+    }
+
+    input.disabled = true;
+    try {
+      await ensureAuthed();
+      await updateDoc(doc(db, "patients", p.id), {
+        name: next,
+        updatedAt: serverTimestamp(),
+        ...RMC.stamp(),
+      });
+      p.name = next;
+      showToast(`Renamed to "${next}".`);
+      await propagateName(p.id, next, before);
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't rename the patient.");
+      input.value = before;
+    } finally {
+      input.disabled = false;
+    }
+  }
+
+  // Appointments and cash entries store a copy of the patient's name, so a
+  // rename leaves the old spelling on past records unless we update them.
+  async function propagateName(patientId, next, before) {
+    let stale = [];
+    try {
+      const [appts, cash] = await Promise.all([
+        getDocs(query(collection(db, "appointments"), where("patientId", "==", patientId))),
+        getDocs(query(collection(db, "cash"), where("patientId", "==", patientId))),
+      ]);
+      for (const d of appts.docs)
+        if ((d.data().patientName || "") !== next) stale.push(["appointments", d.id]);
+      for (const d of cash.docs)
+        if ((d.data().patientName || "") !== next) stale.push(["cash", d.id]);
+    } catch (err) {
+      console.error("Couldn't check past records", err);
+      return;
+    }
+    if (!stale.length) return;
+
+    const ok = confirm(
+      `${stale.length} past record(s) still say "${before || "(no name)"}".\n\n` +
+      `Update them to "${next}" as well?\n\n` +
+      `OK = update them (use this for a typo).\n` +
+      `Cancel = leave history as it was.`
+    );
+    if (!ok) return;
+
+    try {
+      let done = 0;
+      for (const [coll, id] of stale) {
+        await updateDoc(doc(db, coll, id), { patientName: next, ...RMC.stamp() });
+        done++;
+      }
+      showToast(`Updated ${done} past record(s).`);
+    } catch (err) {
+      console.error(err);
+      showToast("Some past records couldn't be updated.");
     }
   }
 

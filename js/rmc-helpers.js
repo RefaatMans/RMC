@@ -100,6 +100,15 @@
     showToast._t = setTimeout(() => el.classList.remove("show"), 2400);
   }
 
+  /* An appointment whose note says it was called off. Matched on stems so
+     "cancel", "canceled", "cancelled", "cancellation", "reschedule",
+     "rescheduled", "postponed" all count. Add words here to extend it. */
+  const VOID_NOTE_STEMS = ["cancel", "reschedul", "postpon"];
+  function isVoidNote(comment) {
+    const t = String(comment == null ? "" : comment).toLowerCase();
+    return VOID_NOTE_STEMS.some((w) => t.includes(w));
+  }
+
   /* Escape text before it goes into innerHTML. */
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -120,6 +129,6 @@
   global.RMCH = {
     pad2, toJsDate, fmtMoney, fmtDate, fmtTime, fmtDateTime, todayISO,
     dayBounds, stampedDate, byName, cashMoment, cashSigned, newOpId,
-    showToast, esc, firebaseConfig,
+    showToast, esc, firebaseConfig, isVoidNote, VOID_NOTE_STEMS,
   };
 })(window);

@@ -180,7 +180,7 @@
 
       const {
         newOpId, toJsDate, fmtMoney, fmtDateTime, fmtTime,
-        todayISO, dayBounds, byName, cashMoment, showToast,
+        todayISO, dayBounds, byName, cashMoment, showToast, isVoidNote,
       } = RMCH;
 
       if (!RMC.requireAuth()) throw new Error("not signed in");
@@ -226,9 +226,11 @@
       }
 
       function statusOf(appt) {
+        // A cancelled visit is not owed, whatever its charge says.
+        if (isVoidNote(appt.comment)) return "void";
         const { net } = tally(appt.id);
         const charge = appt.charge == null ? null : Number(appt.charge);
-        if (charge == null) return net === 0 ? "nocharge" : "nocharge";
+        if (charge == null) return "nocharge";
         const balance = charge - net;
         if (Math.abs(balance) < 0.005) return "paid";
         return balance > 0 ? "open" : "over";
@@ -322,7 +324,7 @@
           if (status === "all") return true;
           const s = statusOf(a);
           if (status === "open") return s === "open";
-          if (status === "paid") return s === "paid" || s === "over";
+          if (status === "paid") return s === "paid" || s === "over" || s === "void";
           if (status === "nocharge") return s === "nocharge";
           return true;
         });
@@ -336,7 +338,9 @@
           const { cashIn, cashOut, net } = tally(a.id);
           tIn += cashIn;
           tOut += cashOut;
-          if (a.charge != null) {
+          // A cancelled or rescheduled visit still shows, but its charge is
+          // not counted as owed — otherwise the outstanding total is wrong.
+          if (a.charge != null && !isVoidNote(a.comment)) {
             tCharged += Number(a.charge);
             tDue += Math.max(0, Number(a.charge) - net);
           }
@@ -363,12 +367,15 @@
 
         for (const a of data) {
           const { cashIn, cashOut, net, count } = tally(a.id);
+          const voided = isVoidNote(a.comment);
           const charge = a.charge == null ? null : Number(a.charge);
           const balance = charge == null ? null : charge - net;
           const s = statusOf(a);
 
           const statusTag =
-            s === "paid"
+            s === "void"
+              ? '<span class="tag void">Cancelled</span>'
+              : s === "paid"
               ? '<span class="tag paid">Settled</span>'
               : s === "open"
               ? '<span class="tag due">Due</span>'
@@ -377,16 +384,19 @@
               : '<span class="tag off">No charge</span>';
 
           const balCell =
-            balance == null
+            balance == null || voided
               ? '<span class="muted">—</span>'
               : `<span class="${
                   Math.abs(balance) < 0.005 ? "bal-0" : balance > 0 ? "bal-due" : "bal-over"
                 }">${fmtMoney(balance)}</span>`;
 
           const tr = document.createElement("tr");
+          if (voided) tr.className = "row-void";
           tr.innerHTML = `
             <td class="appt-time">${fmtTime(toJsDate(a.startAt))}</td>
-            <td>${esc(a.patientName || "(no name)")}</td>
+            <td><span class="${voided ? "void-name" : ""}">${esc(
+              a.patientName || "(no name)"
+            )}</span>${voided ? ` <span class="tag void" title="${esc(a.comment || "")}">VOID</span>` : ""}</td>
             <td>${esc(a.patientFileNumber ?? "—")}</td>
             <td>${esc(a.doctorName || "—")}</td>
             <td class="right">
