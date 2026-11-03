@@ -158,6 +158,16 @@ tfoot td:last-child { border-right: none; }
 .amt-in { color: var(--green); font-weight: 800; }
 .amt-out { color: var(--red); font-weight: 800; }
 
+/* An appointment whose note says it was cancelled, rescheduled or postponed.
+   Flagged with colour AND a strikethrough on the patient's name, so it still
+   reads as void in print or to anyone who can't distinguish the tint. */
+tbody tr.row-void,
+tbody tr.row-void:nth-child(even) { background: #fff1f1; }
+tbody tr.row-void:hover { background: #ffe6e6; }
+tbody tr.row-void td { color: #b91c1c; }
+tbody tr.row-void .void-name { text-decoration: line-through; }
+.tag.void { background: rgba(220, 38, 38, .14); color: var(--red); }
+
 /* ------------------------------------------------------------------- modal */
 .modal {
   position: fixed; inset: 0; display: none; place-items: center;

@@ -202,10 +202,11 @@
 
       const {
         toJsDate, fmtMoney, fmtDate, fmtTime, fmtDateTime, byName,
-        cashMoment, showToast,
+        cashMoment, showToast, isVoidNote,
       } = RMCH;
 
-      if (!RMC.requireAuth()) throw new Error("not signed in");
+      // Administrators only — this page shows what every patient owes.
+      if (!RMC.requireAdmin()) throw new Error("not an administrator");
       RMC.paintWhoAmI("#whoAmI");
       document.getElementById("year").textContent = new Date().getFullYear();
 
@@ -329,7 +330,8 @@
 
         /* ---- totals ---- */
         let totalCharged = 0, totalIn = 0, totalOut = 0;
-        for (const a of appts) if (a.charge != null) totalCharged += Number(a.charge);
+        for (const a of appts)
+          if (a.charge != null && !isVoidNote(a.comment)) totalCharged += Number(a.charge);
         for (const c of cash) {
           const amt = Math.abs(Number(c.amount || 0));
           if (c.type === "out") totalOut += amt;
@@ -364,17 +366,19 @@
           let aCharged = 0, aPaid = 0, aBal = 0;
           for (const a of appts) {
             const d = toJsDate(a.startAt);
+            const voided = isVoidNote(a.comment);
             const charge = a.charge == null ? null : Number(a.charge);
             const paid = paidByAppt.get(a.id) || 0;
             const bal = charge == null ? null : charge - paid;
-            if (charge != null) {
+            if (charge != null && !voided) {
               aCharged += charge;
               aBal += bal;
             }
             aPaid += paid;
 
-            const status =
-              charge == null
+            const status = voided
+              ? '<span class="tag void">Cancelled</span>'
+              : charge == null
                 ? '<span class="tag off">No charge</span>'
                 : Math.abs(bal) < 0.005
                 ? '<span class="tag paid">Settled</span>'
@@ -384,10 +388,10 @@
 
             apptRows.insertAdjacentHTML(
               "beforeend",
-              `<tr>
+              `<tr class="${voided ? "row-void" : ""}">
                 <td class="nowrap">${fmtDate(d)}</td>
                 <td class="nowrap">${fmtTime(d)}</td>
-                <td>${esc(a.doctorName || "—")}</td>
+                <td><span class="${voided ? "void-name" : ""}">${esc(a.doctorName || "—")}</span></td>
                 <td class="right">${charge == null ? '<span class="muted">—</span>' : fmtMoney(charge)}</td>
                 <td class="right ${paid ? "amt-in" : "muted"}">${fmtMoney(paid)}</td>
                 <td class="right">${

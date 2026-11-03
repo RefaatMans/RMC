@@ -304,21 +304,11 @@
         border-color: var(--primary);
         box-shadow: 0 0 0 3px var(--ring);
       }
-      .charge-input {
-        width: 100%;
-        max-width: 84px;
-        padding: 4px 6px;
-        border-radius: 8px;
-        border: 1px solid rgba(15, 23, 42, 0.14);
-        background: #fff;
-        font: inherit;
-        text-align: right;
-        outline: none;
-      }
-      .charge-input:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px var(--ring);
-      }
+      /* A visit whose note says it was cancelled, rescheduled or postponed.
+         Colour plus a strikethrough, so it reads as void even in print. */
+      tr.row-void { background: #fff1f1; }
+      tr.row-void td { color: #b91c1c; }
+      tr.row-void .void-name { text-decoration: line-through; }
     </style>
   </head>
   <body>
@@ -383,22 +373,6 @@
               />
             </div>
 
-            <div class="field full">
-              <label for="charge">Amount Charged</label>
-              <input
-                id="charge"
-                name="charge"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="e.g., 50.00"
-              />
-              <small class="muted">
-                What the patient is being charged. Leave blank if it isn't
-                decided yet — you can set it later from Appointment Cash.
-              </small>
-            </div>
-
             <div class="actions full">
               <button type="button" class="btn btn-secondary" id="cancelBtn">
                 Cancel
@@ -445,6 +419,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script src="./js/rmc-auth.js"></script>
+    <script src="./js/rmc-helpers.js"></script>
 
     <script type="module">
       // Session gate
@@ -577,7 +552,6 @@
       const doctorHint = document.getElementById("doctorHint");
       const patientHint = document.getElementById("patientHint");
       const startAtEl = document.getElementById("startAt");
-      const chargeEl = document.getElementById("charge");
 
       const schedDoctorName = document.getElementById("schedDoctorName");
       const schedDate = document.getElementById("schedDate");
@@ -682,16 +656,18 @@
       // Column count must stay in step with these headers — see COLSPAN below.
       function setTableHeaders(showDoctorCol) {
         tableHeadRow.innerHTML = showDoctorCol
-          ? `<th style="width:88px">Time</th><th style="width:180px">Doctor</th><th>Patient</th><th style="width:96px">File #</th><th style="width:120px">Mobile</th><th style="width:92px">Charged</th><th class="th-comment">Comment</th>`
-          : `<th style="width:88px">Time</th><th>Patient</th><th style="width:96px">File #</th><th style="width:120px">Mobile</th><th style="width:92px">Charged</th><th class="th-comment">Comment</th>`;
+          ? `<th style="width:88px">Time</th><th style="width:180px">Doctor</th><th>Patient</th><th style="width:96px">File #</th><th style="width:120px">Mobile</th><th class="th-comment">Comment</th>`
+          : `<th style="width:88px">Time</th><th>Patient</th><th style="width:96px">File #</th><th style="width:120px">Mobile</th><th class="th-comment">Comment</th>`;
       }
-      const COLSPAN = (showDoctorCol) => (showDoctorCol ? 7 : 6);
+      const COLSPAN = (showDoctorCol) => (showDoctorCol ? 6 : 5);
 
       function attachCommentHandlers(inputEl, apptId) {
         autosize(inputEl);
         inputEl.addEventListener("input", (e) => {
           autosize(e.target);
           e.target.title = e.target.value || "";
+          const row = e.target.closest("tr");
+          if (row) row.classList.toggle("row-void", RMCH.isVoidNote(e.target.value));
           saveCommentDebounced(apptId, e.target.value);
         });
         inputEl.addEventListener("blur", (e) =>
@@ -747,33 +723,6 @@
         }
       }
 
-      // Save an edited charge straight from the schedule table.
-      async function saveChargeForAppointment(appt, raw, inputEl) {
-        const txt = (raw || "").trim();
-        const value = txt === "" ? null : Number(txt);
-        if (value !== null && (!isFinite(value) || value < 0)) {
-          showToast("Amount charged must be a positive number.");
-          inputEl.value = appt.charge ?? "";
-          return;
-        }
-        const before = appt.charge ?? null;
-        if (value === before) return;
-        try {
-          await ensureAuthed();
-          await updateDoc(doc(db, "appointments", appt.id), {
-            charge: value,
-            updatedAt: serverTimestamp(),
-            ...RMC.stamp(),
-          });
-          appt.charge = value;
-          showToast("Charge updated.");
-        } catch (err) {
-          console.error(err);
-          showToast("Failed to update the charge.");
-          inputEl.value = before ?? "";
-        }
-      }
-
       function renderScheduleTable(appts, showDoctorCol) {
         scheduleBody.innerHTML = "";
         if (!appts.length) {
@@ -796,28 +745,15 @@
           const mobile = a.patientPhone ?? p.phone ?? "—";
           const doctorName = a.doctorName || "(unknown)";
 
-          const chargeCell = `<td><input type="number" class="charge-input" min="0" step="0.01" value="${
-            a.charge ?? ""
-          }" placeholder="—" aria-label="Amount charged"></td>`;
-
           const tr = document.createElement("tr");
+          // A note saying the visit was cancelled or moved marks the row void.
+          if (RMCH.isVoidNote(a.comment)) tr.className = "row-void";
           tr.innerHTML = showDoctorCol
-            ? `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${doctorName}</td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>${chargeCell}
+            ? `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${doctorName}</td><td><span class="void-name">${patientName}</span></td><td>${fileNo}</td><td>${mobile}</td>
            <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`
-            : `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td>${patientName}</td><td>${fileNo}</td><td>${mobile}</td>${chargeCell}
+            : `<td><input type="time" class="time-input" value="${time24}" step="300" title="${time12}"></td><td><span class="void-name">${patientName}</span></td><td>${fileNo}</td><td>${mobile}</td>
            <td class="comment-cell"><textarea class="comment-input" placeholder="Add note…" aria-label="Comment"></textarea></td>`;
           scheduleBody.appendChild(tr);
-
-          const chInput = tr.querySelector(".charge-input");
-          chInput.addEventListener("change", () =>
-            saveChargeForAppointment(a, chInput.value, chInput)
-          );
-          chInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              chInput.blur();
-            }
-          });
 
           const cInput = tr.querySelector(".comment-input");
           cInput.value = (a.comment ?? "").toString();
@@ -987,13 +923,6 @@
           const p = patientsById[patientId] || {};
           // slotKey is doctorId|datetime -> a natural unique ID for the slot,
           // so two racing clicks write the SAME doc instead of two appointments.
-          const chargeRaw = (chargeEl.value || "").trim();
-          const charge = chargeRaw === "" ? null : Number(chargeRaw);
-          if (charge !== null && (!isFinite(charge) || charge < 0)) {
-            showToast("Amount charged must be a positive number.");
-            return;
-          }
-
           await setDoc(doc(db, "appointments", key), {
             doctorId,
             doctorName,
@@ -1001,7 +930,7 @@
             patientName,
             startAt: new Date(dtLocal),
             slotKey: key,
-            charge,
+            charge: null,          // set in Appointment Cash, not here
             createdAt: serverTimestamp(),
             createdBy: auth.currentUser?.uid || null,
             patientFileNumber: p.fileNumber ?? null,
