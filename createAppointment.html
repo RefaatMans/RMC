@@ -921,9 +921,16 @@
           }
 
           const p = patientsById[patientId] || {};
-          // slotKey is doctorId|datetime -> a natural unique ID for the slot,
-          // so two racing clicks write the SAME doc instead of two appointments.
-          await setDoc(doc(db, "appointments", key), {
+          // The document id must NOT be derived from the slot. Changing an
+          // appointment's time rewrites its slotKey field but cannot rename
+          // its document, so a moved appointment goes on occupying the id of
+          // the time it used to be at — and booking that freed time would
+          // setDoc straight over it, destroying the moved appointment with no
+          // warning. Payments reference an appointment by document id too, so
+          // the id has to stay put for the life of the appointment. A random
+          // id keeps it stable; the slotKey field above is what guards the
+          // slot against double booking.
+          await setDoc(doc(db, "appointments", RMCH.newOpId()), {
             doctorId,
             doctorName,
             patientId,
