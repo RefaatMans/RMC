@@ -276,7 +276,7 @@
 
       // If already logged in, go to main
       if (RMC.isSignedIn()) {
-        window.location.replace(DEST_URL);
+        window.location.replace(RMC.homeFor());
       }
 
       // DOM
@@ -380,12 +380,15 @@
               username: u.username || username,
               name: u.displayName || u.username || username,
               role: u.role || "user",
+              doctorId: u.doctorId || null,
             });
+            // A doctor account has its own landing screen.
+            const dest = RMC.homeFor({ role: u.role || "user" });
             // Best effort — never block the sign-in on it.
             await updateDoc(doc(db, "users", snap.id), {
               lastLoginAt: serverTimestamp(),
             }).catch((e) => console.warn("lastLoginAt not recorded", e));
-            window.location.replace(DEST_URL);
+            window.location.replace(dest);
             return;
           }
 

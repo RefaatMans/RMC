@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — To Collect</title>
+    <link rel="stylesheet" href="./css/rmc.css" />
+    <style>
+      .appt-time { font-weight: 800; white-space: nowrap; }
+      .proc-cell { font-weight: 700; }
+      .note-line { color: var(--muted); font-size: .8rem; }
+      tr.done { background: #f3fbf5 !important; }
+      tr.done:hover { background: #e9f7ee !important; }
+      .big-amount { font-size: 1.02rem; font-weight: 900; }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand">
+        <img src="./assets/LogoCircle.png" alt="Logo" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <div class="header-right">
+        <span class="whoami">Signed in as <strong id="whoAmI">—</strong></span>
+        <a class="back" href="cashhome.html" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back
+        </a>
+      </div>
+    </header>
+
+    <main class="wrap" role="main">
+      <section class="hero">
+        <h1>To Collect</h1>
+        <p>Charges the doctors have sent through. Mark each one collected as you take the money.</p>
+      </section>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <div class="field">
+              <label for="day">Date</label>
+              <input id="day" type="date" />
+            </div>
+            <div class="field">
+              <label for="doctorFilter">Doctor</label>
+              <select id="doctorFilter"><option value="">All doctors</option></select>
+            </div>
+            <div class="field">
+              <label for="statusFilter">Show</label>
+              <select id="statusFilter">
+                <option value="pending">Waiting to collect</option>
+                <option value="all">Everything</option>
+                <option value="collected">Already collected</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+        </div>
+        <div class="count" id="scopeNote">Loading…</div>
+      </section>
+
+      <section class="card" style="background: transparent; border: 0; box-shadow: none; padding: 0; margin-top: 16px">
+        <div class="stats">
+          <div class="stat"><h3>Waiting</h3><div class="val due" id="sWaiting">0</div></div>
+          <div class="stat"><h3>Amount waiting</h3><div class="val due" id="sWaitingAmt">0.00</div></div>
+          <div class="stat"><h3>Collected today</h3><div class="val in" id="sDone">0</div></div>
+          <div class="stat"><h3>Amount collected</h3><div class="val in" id="sDoneAmt">0.00</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 82px">Time</th>
+                <th>Patient</th>
+                <th style="width: 80px">File #</th>
+                <th>Doctor</th>
+                <th>Procedure</th>
+                <th style="width: 110px" class="right">Amount</th>
+                <th style="width: 130px">Status</th>
+                <th style="width: 150px"></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="8" class="empty">Loading…</td></tr>
+            </tbody>
+            <tfoot id="foot" style="display: none">
+              <tr>
+                <td colspan="5">Total shown</td>
+                <td class="right" id="footTotal">0.00</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <footer><small>&copy; <span id="year"></span> RMC Medical Center</small></footer>
+
+    <script src="./js/rmc-auth.js"></script>
+    <script src="./js/rmc-helpers.js"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore, collection, doc, getDocs, setDoc, updateDoc,
+        deleteDoc, query, where, serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth, signInAnonymously,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+      const app = initializeApp(RMCH.firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+      const auth = getAuth(app);
+      let authPromise = null;
+      function ensureAuthed() {
+        if (auth.currentUser) return Promise.resolve(auth.currentUser);
+        if (!authPromise) {
+          authPromise = signInAnonymously(auth)
+            .then((c) => c.user)
+            .catch((e) => { authPromise = null; throw e; });
+        }
+        return authPromise;
+      }
+
+      const {
+        newOpId, toJsDate, fmtMoney, fmtTime, fmtDateTime, todayISO,
+        dayBounds, byName, showToast, esc,
+      } = RMCH;
+
+      if (!RMC.requireAuth()) throw new Error("not signed in");
+      // Doctors set charges; they do not collect them.
+      if (RMC.isDoctor()) window.location.replace("DoctorCharges.html");
+      RMC.paintWhoAmI("#whoAmI");
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      const dayEl = document.getElementById("day");
+      const doctorFilterEl = document.getElementById("doctorFilter");
+      const statusFilterEl = document.getElementById("statusFilter");
+      const rowsEl = document.getElementById("rows");
+      const footEl = document.getElementById("foot");
+      const scopeNote = document.getElementById("scopeNote");
+
+      let charges = [];
+
+      async function loadDoctors() {
+        const snap = await getDocs(collection(db, "doctors"));
+        const doctors = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byName);
+        doctorFilterEl.innerHTML = `<option value="">All doctors</option>`;
+        for (const d of doctors) {
+          const o = document.createElement("option");
+          o.value = d.id;
+          o.textContent = d.name || "(no name)";
+          doctorFilterEl.appendChild(o);
+        }
+      }
+
+      async function refresh() {
+        const dateStr = dayEl.value;
+        if (!dateStr) return;
+        rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+        try {
+          await ensureAuthed();
+          const [start, end] = dayBounds(dateStr);
+          const snap = await getDocs(
+            query(
+              collection(db, "charges"),
+              where("appointmentAt", ">=", start),
+              where("appointmentAt", "<", end)
+            )
+          );
+          charges = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((c) => c.status !== "cancelled")
+            .sort((a, b) => (toJsDate(a.appointmentAt) || 0) - (toJsDate(b.appointmentAt) || 0));
+          render();
+        } catch (err) {
+          console.error(err);
+          const code = (err && (err.code || err.message)) || "";
+          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">${
+            /permission-denied|insufficient/i.test(code)
+              ? "The database refused the request. The rules need to allow the 'charges' collection."
+              : "Couldn't load the charges."
+          }</td></tr>`;
+          footEl.style.display = "none";
+          scopeNote.textContent = "—";
+        }
+      }
+
+      function visible() {
+        const docId = doctorFilterEl.value;
+        const status = statusFilterEl.value;
+        return charges.filter((c) => {
+          if (docId && c.doctorId !== docId) return false;
+          if (status === "all") return true;
+          if (status === "pending") return c.status !== "collected";
+          return c.status === "collected";
+        });
+      }
+
+      function render() {
+        let waiting = 0, waitingAmt = 0, done = 0, doneAmt = 0;
+        for (const c of charges) {
+          const amt = Number(c.amount || 0);
+          if (c.status === "collected") { done++; doneAmt += amt; }
+          else { waiting++; waitingAmt += amt; }
+        }
+        document.getElementById("sWaiting").textContent = String(waiting);
+        document.getElementById("sWaitingAmt").textContent = fmtMoney(waitingAmt);
+        document.getElementById("sDone").textContent = String(done);
+        document.getElementById("sDoneAmt").textContent = fmtMoney(doneAmt);
+
+        const data = visible();
+        scopeNote.textContent = `${data.length} charge${data.length === 1 ? "" : "s"} shown`;
+
+        rowsEl.innerHTML = "";
+        if (!data.length) {
+          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Nothing to show.</td></tr>`;
+          footEl.style.display = "none";
+          return;
+        }
+
+        let total = 0;
+        for (const c of data) {
+          const amt = Number(c.amount || 0);
+          total += amt;
+          const collected = c.status === "collected";
+          const tr = document.createElement("tr");
+          if (collected) tr.className = "done";
+          tr.innerHTML = `
+            <td class="appt-time">${fmtTime(toJsDate(c.appointmentAt))}</td>
+            <td>${esc(c.patientName || "(no name)")}</td>
+            <td>${esc(c.patientFileNumber ?? "—")}</td>
+            <td>${esc(c.doctorName || "—")}</td>
+            <td><span class="proc-cell">${esc(c.procedure || "—")}</span>${
+              c.note ? `<div class="note-line">${esc(c.note)}</div>` : ""
+            }</td>
+            <td class="right big-amount">${fmtMoney(amt)}</td>
+            <td>${
+              collected
+                ? `<span class="tag paid">Collected</span><div class="note-line">${esc(
+                    c.collectedByName || ""
+                  )} ${c.collectedAt ? fmtDateTime(toJsDate(c.collectedAt)) : ""}</div>`
+                : '<span class="tag due">Waiting</span>'
+            }</td>
+            <td class="right">${
+              collected
+                ? `<button class="btn btn-secondary btn-sm" data-act="undo">Undo</button>`
+                : `<button class="btn btn-in btn-sm" data-act="collect">Mark collected</button>`
+            }</td>`;
+          rowsEl.appendChild(tr);
+          tr.querySelector('[data-act="collect"]')?.addEventListener("click", () => collect(c));
+          tr.querySelector('[data-act="undo"]')?.addEventListener("click", () => undo(c));
+        }
+        document.getElementById("footTotal").textContent = fmtMoney(total);
+        footEl.style.display = "";
+      }
+
+      // Collecting writes the cash entry. The cash id is kept on the charge so
+      // undoing can find it again, and so a double click can't bank it twice.
+      async function collect(c) {
+        if (c.status === "collected") return;
+        const amount = Number(c.amount || 0);
+        if (!isFinite(amount) || amount <= 0) {
+          showToast("This charge has no valid amount.");
+          return;
+        }
+        try {
+          await ensureAuthed();
+          const cashId = c.cashId || newOpId();
+          await setDoc(doc(db, "cash", cashId), {
+            type: "in",
+            amount,
+            signedAmount: amount,
+            medicalAct: [c.procedure, c.note].filter(Boolean).join(" — "),
+            date: new Date(),
+            patientId: c.patientId || null,
+            patientName: c.patientName || "",
+            doctorId: c.doctorId || null,
+            doctorName: c.doctorName || "",
+            appointmentId: c.appointmentId || null,
+            appointmentAt: toJsDate(c.appointmentAt),
+            chargeId: c.id,
+            createdAt: serverTimestamp(),
+            ...RMC.stamp(),
+          });
+          const me = RMC.currentUser();
+          await updateDoc(doc(db, "charges", c.id), {
+            status: "collected",
+            cashId,
+            collectedAt: new Date(),
+            collectedById: me.id || null,
+            collectedByName: me.name || null,
+            updatedAt: serverTimestamp(),
+          });
+          Object.assign(c, {
+            status: "collected",
+            cashId,
+            collectedAt: new Date(),
+            collectedByName: me.name || null,
+          });
+          render();
+          showToast(`Collected ${fmtMoney(amount)}.`);
+        } catch (err) {
+          console.error(err);
+          showToast("Couldn't record the collection.");
+        }
+      }
+
+      async function undo(c) {
+        if (
+          !confirm(
+            "Undo this collection?\n\nThe cash entry it created will be removed and the charge goes back to waiting."
+          )
+        )
+          return;
+        try {
+          await ensureAuthed();
+          if (c.cashId) await deleteDoc(doc(db, "cash", c.cashId));
+          await updateDoc(doc(db, "charges", c.id), {
+            status: "pending",
+            cashId: null,
+            collectedAt: null,
+            collectedById: null,
+            collectedByName: null,
+            updatedAt: serverTimestamp(),
+          });
+          Object.assign(c, {
+            status: "pending",
+            cashId: null,
+            collectedAt: null,
+            collectedByName: null,
+          });
+          render();
+          showToast("Put back to waiting.");
+        } catch (err) {
+          console.error(err);
+          showToast("Couldn't undo it.");
+        }
+      }
+
+      dayEl.addEventListener("change", refresh);
+      doctorFilterEl.addEventListener("change", render);
+      statusFilterEl.addEventListener("change", render);
+      document.getElementById("refreshBtn").addEventListener("click", refresh);
+
+      (async () => {
+        try {
+          await ensureAuthed();
+          dayEl.value = todayISO();
+          await loadDoctors();
+          await refresh();
+        } catch (err) {
+          console.error(err);
+          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Couldn't connect.</td></tr>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

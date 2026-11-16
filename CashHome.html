@@ -210,6 +210,14 @@
           </button>
         </div>
 
+        <div class="card">
+          <button class="action" id="btnCollect">
+            <span class="icon">🔔</span>
+            <span class="label">To Collect</span>
+            <span class="hint">Charges the doctors have sent through, waiting to be collected.</span>
+          </button>
+        </div>
+
         <div class="card" id="statementCard" style="display: none">
           <button class="action" id="btnStatement">
             <span class="icon">📋</span>
@@ -240,6 +248,13 @@
       if (RMC.currentUser().role === "admin") {
         document.getElementById("statementCard").style.display = "";
       }
+
+      document
+        .getElementById("btnCollect")
+        .addEventListener(
+          "click",
+          () => (window.location.href = "NurseCollections.html")
+        );
 
       document.getElementById("year").textContent = new Date().getFullYear();
       document

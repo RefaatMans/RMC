@@ -144,6 +144,9 @@
     // Block access if not logged in
     if (!RMC.requireAuth()) throw new Error('not signed in');
 
+    // Doctors do not use the clinic/cash dashboards.
+    if (RMC.isDoctor()) window.location.replace('DoctorCharges.html');
+
     RMC.paintWhoAmI('#whoAmI');
 
     // The Users tile is only for administrators.
