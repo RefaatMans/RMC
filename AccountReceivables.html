@@ -134,6 +134,70 @@ tr.fully-paid {
       .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
       .btn-secondary { background: #eef4ff; color: var(--primary-600); border: 1px solid rgba(31,111,255,.25); }
       .preview { color: var(--muted); font-size: .92rem; }
+
+      /* ---- expandable payment history ---- */
+      tr.parent-row { cursor: pointer; }
+      tr.parent-row:hover { background: #f6faff; }
+      tr.parent-row.open { background: #eef6ff; }
+      .caret {
+        display: inline-block; width: 14px; text-align: center;
+        transition: transform .15s ease; color: var(--muted); font-size: .8rem;
+      }
+      tr.parent-row.open .caret { transform: rotate(90deg); }
+      tr.detail-row > td { background: #f7fbff; padding: 0; }
+      .detail-box { padding: 10px 14px 14px; }
+      .detail-head {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+      }
+      .detail-head h4 { margin: 0; font-size: .95rem; color: var(--primary-600); }
+      .pay-table { width: 100%; border-collapse: collapse; background: #fff; font-size: .86rem; }
+      .pay-table th {
+        text-align: left; padding: 6px 8px; background: #eaf3ff;
+        border-bottom: 1px solid var(--grid); font-weight: 800; white-space: nowrap;
+      }
+      .pay-table td { padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+      .pay-table tfoot td { font-weight: 800; background: #f7fbff; }
+      .pay-none { padding: 12px 8px; color: var(--muted); text-align: center; }
+      .opening td { color: var(--muted); font-style: italic; }
+      .btn-sm { padding: 4px 9px; font-size: .82rem; border-radius: 9px; }
+      .btn-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+      .cell-input[readonly] {
+        background: transparent; border-color: transparent;
+        color: var(--text); font-weight: 700; cursor: pointer;
+        /* Let clicks fall through to the row, so clicking anywhere except the
+           lab box or a button expands the payments. */
+        pointer-events: none;
+      }
+
+      /* ---- statement of account print ---- */
+      #printArea { display: none; }
+      @media print {
+        body.printing > *:not(#printArea) { display: none !important; }
+        body.printing #printArea { display: block !important; }
+        body.printing { background: #fff; }
+        @page { margin: 14mm; }
+      }
+      #printArea .ps-head {
+        display: flex; align-items: center; gap: 12px;
+        border-bottom: 2px solid #1f6fff; padding-bottom: 10px; margin-bottom: 14px;
+      }
+      #printArea .ps-head img { width: 58px; height: 58px; border-radius: 999px; }
+      #printArea .ps-title { font-size: 1.4rem; font-weight: 900; color: #1f6fff; }
+      #printArea .ps-sub { color: #475569; font-size: .9rem; }
+      #printArea h2 { font-size: 1.1rem; margin: 0 0 10px; }
+      #printArea .ps-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-bottom: 16px; font-size: .95rem; }
+      #printArea .ps-meta div { padding: 3px 0; border-bottom: 1px dotted #cbd5e1; }
+      #printArea table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+      #printArea th, #printArea td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
+      #printArea th { background: #eff6ff; }
+      #printArea td.num, #printArea th.num { text-align: right; }
+      #printArea .ps-totals { margin-top: 16px; width: 58%; margin-left: auto; }
+      #printArea .ps-totals td { border: 0; border-bottom: 1px solid #e2e8f0; padding: 5px 8px; }
+      #printArea .ps-totals tr:last-child td { border-bottom: 0; border-top: 2px solid #1f6fff; font-weight: 900; font-size: 1.05rem; }
+      #printArea .ps-foot { margin-top: 30px; color: #64748b; font-size: .82rem; display: flex; justify-content: space-between; }
+      #printArea .ps-sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
+      #printArea .ps-sign div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: .85rem; color: #475569; }
     </style>
   </head>
   <body>
@@ -158,13 +222,17 @@ tr.fully-paid {
       <section class="card">
         <div class="toolbar">
           <button class="btn" id="btnNew">+ New Record</button>
-          <div class="count"><span id="recCount">0</span> record(s)</div>
+          <div class="count">
+            <span id="recCount">0</span> record(s)
+            <span class="muted"> &nbsp;•&nbsp; click a row to see its payments</span>
+          </div>
         </div>
 
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th style="width: 28px"></th>
                 <th style="width: 110px">Date</th>
                 <th>Patient</th>
                 <th>Doctor</th>
@@ -174,17 +242,47 @@ tr.fully-paid {
                 <th class="right" style="width: 90px">Lab</th>
                 <th class="right" style="width: 120px">Doctor</th>
                 <th class="right" style="width: 120px">Center 60%</th>
+                <th style="width: 92px"></th>
               </tr>
             </thead>
             <tbody id="bodyRows">
               <tr>
-                <td colspan="9" class="muted" style="text-align: center">No data yet.</td>
+                <td colspan="11" class="muted" style="text-align: center">No data yet.</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
     </main>
+
+    <!-- Add a payment to one receivable -->
+    <div class="modal" id="payModal">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+        <h3 id="pTitle">Add payment</h3>
+        <div class="preview" id="payContext" style="margin-bottom: 10px"></div>
+        <form id="payForm" class="grid">
+          <div>
+            <label for="payAmount">Amount *</label>
+            <input id="payAmount" type="number" step="0.01" min="0.01" required />
+          </div>
+          <div>
+            <label for="payDate">Date *</label>
+            <input id="payDate" type="date" required />
+          </div>
+          <div class="full">
+            <label for="payNote">Note</label>
+            <input id="payNote" type="text" placeholder="e.g., cash, second instalment" />
+          </div>
+          <div class="row full">
+            <button type="button" class="btn btn-secondary" id="payCancel">Cancel</button>
+            <button type="submit" class="btn" id="paySave">Save payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Statement of account, filled in just before printing -->
+    <div id="printArea"></div>
 
     <!-- Modal -->
     <div class="modal" id="modal">
@@ -236,7 +334,7 @@ tr.fully-paid {
   // Firebase SDKs
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import {
-    initializeFirestore, collection, addDoc, getDocs,
+    initializeFirestore, collection, addDoc, getDocs, deleteDoc,
     query, orderBy, serverTimestamp, updateDoc, doc, setDoc
   } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
   import {
@@ -334,38 +432,79 @@ tr.fully-paid {
   paidEl.addEventListener("input", updatePreview);
 
   // ---- Firestore ops ----
+  const PAYMENTS = "receivablePayments";
+  let payByRec = new Map();   // receivableId -> [payment, ...]
+  let recById  = new Map();
+  const openRows = new Set(); // which receivables are expanded
+
+  const asDate = (v) =>
+    v?.toDate ? v.toDate() : (v instanceof Date ? v : (v ? new Date(v) : null));
+  const ymd = (d) => {
+    if (!d || isNaN(d)) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+  const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const sumPayments = (id) =>
+    (payByRec.get(id) || []).reduce((t, p) => t + (+p.amount || 0), 0);
+
+  // Money recorded before payment tracking existed. Locked onto the record the
+  // first time a payment is added, so the total never drifts afterwards.
+  function openingOf(r) {
+    if (r.openingPaid != null) return +r.openingPaid || 0;
+    return Math.max(0, (+r.paid || 0) - sumPayments(r.id));
+  }
+  const paidTotal = (r) => openingOf(r) + sumPayments(r.id);
+
   async function loadReceivables() {
-    const snap = await getDocs(
-      query(collection(db, "receivables"), orderBy("date", "desc"), orderBy("createdAt", "desc"))
-    );
-    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const [recSnap, paySnap] = await Promise.all([
+      getDocs(query(collection(db, "receivables"), orderBy("date", "desc"), orderBy("createdAt", "desc"))),
+      getDocs(collection(db, PAYMENTS)),
+    ]);
+    const rows = recSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    payByRec = new Map();
+    for (const d of paySnap.docs) {
+      const pay = { id: d.id, ...d.data() };
+      if (!payByRec.has(pay.receivableId)) payByRec.set(pay.receivableId, []);
+      payByRec.get(pay.receivableId).push(pay);
+    }
+    for (const list of payByRec.values()) {
+      list.sort((a, b) => (asDate(a.date) || 0) - (asDate(b.date) || 0));
+    }
+    recById = new Map(rows.map((r) => [r.id, r]));
     render(rows);
   }
 
   function render(rows) {
     bodyRows.innerHTML = ""; if(recCount) recCount.textContent = rows.length;
     if (!rows.length) {
-      bodyRows.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center">No data yet.</td></tr>`;
+      bodyRows.innerHTML = `<tr><td colspan="11" class="muted" style="text-align:center">No data yet.</td></tr>`;
       return;
     }
     for (const r of rows) {
-      const amt=+r.amount||0, paid=+r.paid||0, lab=+r.lab||0;
+      const amt=+r.amount||0, paid=paidTotal(r), lab=+r.lab||0;
       const rem=Math.max(0,amt-paid), splitBase=Math.max(0,amt-lab), d40=splitBase*0.4, c60=splitBase*0.6;
-      const dt = r.date?.toDate ? r.date.toDate() : (r.date instanceof Date ? r.date : new Date(r.date));
-      const dstr = isNaN(dt) ? "" : dt.toISOString().slice(0,10);
+      const dstr = ymd(asDate(r.date));
+      const isOpen = openRows.has(r.id);
+      const n = (payByRec.get(r.id) || []).length;
+
       const tr = document.createElement("tr");
-      if (paid >= amt && amt > 0) {
-  tr.classList.add("fully-paid");
-}
+      tr.className = "parent-row" + (isOpen ? " open" : "");
+      if (paid >= amt && amt > 0) tr.classList.add("fully-paid");
       tr.innerHTML = `
+        <td><span class="caret">&#9654;</span></td>
         <td>${dstr}</td>
-        <td>${r.patient||"—"}</td>
-        <td>${r.doctor||"—"}</td>
+        <td>${esc(r.patient||"—")}</td>
+        <td>${esc(r.doctor||"—")}</td>
         <td class="right">${fmt(amt)}</td>
 
         <td class="right">
-          <input class="cell-input paid-input" type="number" step="0.01" min="0"
-            value="${paid}" data-id="${r.id}" data-amount="${amt}" aria-label="Paid amount">
+          <input class="cell-input" type="text" readonly tabindex="-1"
+            value="${fmt(paid)}" title="Total of the payments below"
+            aria-label="Paid total">
         </td>
 
         <td class="right">${fmt(rem)}</td>
@@ -376,41 +515,264 @@ tr.fully-paid {
         </td>
 
         <td class="right">${fmt(d40)}</td>
-        <td class="right">${fmt(c60)}</td>`;
+        <td class="right">${fmt(c60)}</td>
+        <td class="right"><span class="muted" style="font-size:.8rem">${n || ""}</span></td>`;
       bodyRows.appendChild(tr);
 
-      // Paid handlers
-      const paidInput = tr.querySelector(".paid-input");
-      paidInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); paidInput.blur(); }});
-      paidInput.addEventListener("change", () => savePaid(paidInput));
-      paidInput.addEventListener("blur",   () => savePaid(paidInput));
+      // Expanding is the row's job; the inputs inside must not trigger it.
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest("input,button,a")) return;
+        if (openRows.has(r.id)) openRows.delete(r.id); else openRows.add(r.id);
+        render(rows);
+      });
 
-      // Lab handlers
       const labInput = tr.querySelector(".lab-input");
       labInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); labInput.blur(); }});
       labInput.addEventListener("change", () => saveLab(labInput));
       labInput.addEventListener("blur",   () => saveLab(labInput));
+
+      if (isOpen) bodyRows.appendChild(detailRow(r));
     }
   }
 
-  async function savePaid(input) {
-    if (!input || input.disabled) return;
-    const id = input.dataset.id;
-    let newVal = Number(input.value || 0);
-    if (!isFinite(newVal) || newVal < 0) newVal = 0;
-    const maxAmount = Number(input.dataset.amount || Infinity);
-    if (isFinite(maxAmount)) newVal = Math.min(newVal, maxAmount);
-    const current = Number(input.getAttribute("value") || 0);
-    if (Math.abs(newVal - current) < 0.0001) return;
+  function detailRow(r) {
+    const list = payByRec.get(r.id) || [];
+    const opening = openingOf(r);
+    const amt = +r.amount || 0;
+    const paid = paidTotal(r);
 
-    input.disabled = true;
+    const tr = document.createElement("tr");
+    tr.className = "detail-row";
+    const td = document.createElement("td");
+    td.colSpan = 11;
+
+    const rowsHtml = [
+      opening > 0.005
+        ? `<tr class="opening">
+             <td>—</td>
+             <td class="right">${fmt(opening)}</td>
+             <td>Opening balance (recorded before payments were tracked)</td>
+             <td>—</td>
+             <td></td>
+           </tr>`
+        : "",
+      ...list.map((p) => `
+        <tr>
+          <td>${ymd(asDate(p.date)) || "—"}</td>
+          <td class="right">${fmt(+p.amount || 0)}</td>
+          <td>${esc(p.note || "")}</td>
+          <td>${esc(p.recordedByName || "—")}</td>
+          <td class="right"><button class="btn btn-danger btn-sm" data-del="${p.id}">Delete</button></td>
+        </tr>`),
+    ].join("");
+
+    td.innerHTML = `
+      <div class="detail-box">
+        <div class="detail-head">
+          <h4>Payments — ${esc(r.patient || "—")}</h4>
+          <div style="display:flex; gap:8px">
+            <button class="btn btn-secondary btn-sm" data-print="${r.id}">Print statement</button>
+            <button class="btn btn-sm" data-add="${r.id}">+ Add payment</button>
+          </div>
+        </div>
+        ${
+          !list.length && opening <= 0.005
+            ? `<div class="pay-none">No payments recorded yet.</div>`
+            : `<table class="pay-table">
+                 <thead>
+                   <tr>
+                     <th style="width:110px">Date</th>
+                     <th style="width:100px" class="right">Amount</th>
+                     <th>Note</th>
+                     <th style="width:120px">Recorded by</th>
+                     <th style="width:80px"></th>
+                   </tr>
+                 </thead>
+                 <tbody>${rowsHtml}</tbody>
+                 <tfoot>
+                   <tr>
+                     <td>Total paid</td>
+                     <td class="right">${fmt(paid)}</td>
+                     <td colspan="3">Remaining ${fmt(Math.max(0, amt - paid))} of ${fmt(amt)}</td>
+                   </tr>
+                 </tfoot>
+               </table>`
+        }
+      </div>`;
+    tr.appendChild(td);
+
+    td.querySelector("[data-add]")?.addEventListener("click", () => openPayModal(r));
+    td.querySelector("[data-print]")?.addEventListener("click", () => printStatement(r));
+    td.querySelectorAll("[data-del]").forEach((b) =>
+      b.addEventListener("click", () => deletePayment(r, b.dataset.del)));
+    return tr;
+  }
+
+  /* ---------------- add / delete a payment ---------------- */
+  const payModal   = document.getElementById("payModal");
+  const payForm    = document.getElementById("payForm");
+  const payAmount  = document.getElementById("payAmount");
+  const payDate    = document.getElementById("payDate");
+  const payNote    = document.getElementById("payNote");
+  const paySave    = document.getElementById("paySave");
+  const payContext = document.getElementById("payContext");
+  let payTarget = null;
+
+  function openPayModal(r) {
+    payTarget = r;
+    const remaining = Math.max(0, (+r.amount || 0) - paidTotal(r));
+    payContext.textContent =
+      `${r.patient || "—"} • ${r.doctor || "—"} • remaining ${fmt(remaining)} of ${fmt(+r.amount || 0)}`;
+    payAmount.value = remaining > 0 ? remaining.toFixed(2) : "";
+    payDate.value = ymd(new Date());
+    payNote.value = "";
+    payModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => payAmount.focus(), 50);
+  }
+  function closePayModal() {
+    payModal.classList.remove("show");
+    document.body.style.overflow = "";
+    payTarget = null;
+    payForm.reset();
+  }
+  document.getElementById("payCancel").addEventListener("click", closePayModal);
+  payModal.addEventListener("click", (e) => { if (e.target === payModal) closePayModal(); });
+
+  // paid on the receivable stays in step with the payments, because the daily
+  // and monthly views still read that field.
+  async function syncPaid(r, opening) {
+    await updateDoc(doc(db, "receivables", r.id), {
+      paid: opening + sumPayments(r.id),
+      openingPaid: opening,
+      updatedAt: serverTimestamp(),
+      ...RMC.stamp(),
+    });
+  }
+
+  let payBusy = false;
+  payForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (payBusy || !payTarget) return;
+    const amount = Number(payAmount.value);
+    if (!isFinite(amount) || amount <= 0) { alert("Enter an amount greater than zero."); return; }
+    if (!payDate.value) { alert("Pick a date."); return; }
+
+    const r = payTarget;
+    const opening = openingOf(r);
+    payBusy = true; paySave.disabled = true; paySave.textContent = "Saving…";
     try {
-      await updateDoc(doc(db, "receivables", id), { paid: newVal, updatedAt: serverTimestamp(), ...RMC.stamp() });
-      input.setAttribute("value", String(newVal));
+      const ref = await addDoc(collection(db, PAYMENTS), {
+        receivableId: r.id,
+        amount,
+        note: (payNote.value || "").trim(),
+        date: new Date(payDate.value + "T12:00:00"),
+        patient: r.patient || null,
+        doctor: r.doctor || null,
+        createdAt: serverTimestamp(),
+        ...RMC.stamp(),
+      });
+      if (!payByRec.has(r.id)) payByRec.set(r.id, []);
+      payByRec.get(r.id).push({ id: ref.id, amount, date: new Date(payDate.value + "T12:00:00") });
+      await syncPaid(r, opening);
+      openRows.add(r.id);
+      closePayModal();
       await loadReceivables();
     } catch (err) {
-      console.error(err); alert("Failed to update paid amount."); input.value = current;
-    } finally { input.disabled = false; }
+      console.error(err);
+      alert("Couldn't save the payment.");
+    } finally {
+      payBusy = false; paySave.disabled = false; paySave.textContent = "Save payment";
+    }
+  });
+
+  async function deletePayment(r, payId) {
+    if (!confirm("Delete this payment? The paid total will go down by its amount.")) return;
+    const opening = openingOf(r);
+    try {
+      await deleteDoc(doc(db, PAYMENTS, payId));
+      payByRec.set(r.id, (payByRec.get(r.id) || []).filter((p) => p.id !== payId));
+      await syncPaid(r, opening);
+      await loadReceivables();
+    } catch (err) {
+      console.error(err);
+      alert("Couldn't delete the payment.");
+    }
+  }
+
+  /* ---------------- statement of account ---------------- */
+  function printStatement(r) {
+    const list = payByRec.get(r.id) || [];
+    const opening = openingOf(r);
+    const amt = +r.amount || 0;
+    const lab = +r.lab || 0;
+    const paid = paidTotal(r);
+    const remaining = Math.max(0, amt - paid);
+
+    const lines = [
+      opening > 0.005
+        ? `<tr><td>—</td><td>Opening balance</td><td class="num">${fmt(opening)}</td></tr>`
+        : "",
+      ...list.map((p) => `
+        <tr>
+          <td>${ymd(asDate(p.date)) || "—"}</td>
+          <td>${esc(p.note || "Payment")}</td>
+          <td class="num">${fmt(+p.amount || 0)}</td>
+        </tr>`),
+    ].join("");
+
+    document.getElementById("printArea").innerHTML = `
+      <div class="ps-head">
+        <img src="./assets/LogoCircle.png" alt="">
+        <div>
+          <div class="ps-title">Ruwais Medical Center</div>
+          <div class="ps-sub">Statement of Account</div>
+        </div>
+      </div>
+
+      <div class="ps-meta">
+        <div><strong>Patient:</strong> ${esc(r.patient || "—")}</div>
+        <div><strong>Doctor:</strong> ${esc(r.doctor || "—")}</div>
+        <div><strong>Record date:</strong> ${ymd(asDate(r.date)) || "—"}</div>
+        <div><strong>Printed:</strong> ${ymd(new Date())}</div>
+      </div>
+
+      <h2>Payments</h2>
+      ${
+        !lines
+          ? `<p class="ps-sub">No payments recorded.</p>`
+          : `<table>
+               <thead><tr><th style="width:120px">Date</th><th>Note</th><th class="num" style="width:110px">Amount</th></tr></thead>
+               <tbody>${lines}</tbody>
+             </table>`
+      }
+
+      <table class="ps-totals">
+        <tr><td>Total charged</td><td class="num">${fmt(amt)}</td></tr>
+        ${lab > 0 ? `<tr><td>Lab</td><td class="num">${fmt(lab)}</td></tr>` : ""}
+        <tr><td>Total paid</td><td class="num">${fmt(paid)}</td></tr>
+        <tr><td>Balance due</td><td class="num">${fmt(remaining)}</td></tr>
+      </table>
+
+      <div class="ps-sign">
+        <div>Received by</div>
+        <div>Patient signature</div>
+      </div>
+
+      <div class="ps-foot">
+        <span>Ruwais Medical Center</span>
+        <span>Generated ${new Date().toLocaleString()}</span>
+      </div>`;
+
+    document.body.classList.add("printing");
+    const cleanup = () => {
+      document.body.classList.remove("printing");
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+    // Safari and some Android browsers never fire afterprint.
+    setTimeout(cleanup, 3000);
   }
 
   async function saveLab(input) {
