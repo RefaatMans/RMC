@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="./css/rmc.css" />
     <style>
       .appt-time { font-weight: 800; white-space: nowrap; }
+      /* m-head is the phone card's title; it has no place in the wide table. */
+      @media (min-width: 761px) { td.m-head { display: none; } }
       tr.has-charge { background: #f3fbf5 !important; }
       tr.has-charge:hover { background: #e9f7ee !important; }
       .proc-cell { font-weight: 700; }
@@ -15,6 +17,104 @@
       .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
       .legend span { display: inline-flex; align-items: center; gap: 5px; }
       .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+      /* ==================================================================
+         Phone layout. Doctors use this on their phones, so below 760px the
+         table stops being a table: each appointment becomes a card, every
+         cell carries its own label, and the action is a full-width button
+         big enough to hit with a thumb.
+         ================================================================== */
+      @media (max-width: 760px) {
+        .wrap { margin: 0 12px 32px; }
+        .header { padding: 10px 14px; }
+        .brand img { width: 32px; height: 32px; }
+        /* The clinic name costs a whole line on a phone; the logo says it. */
+        .name { display: none; }
+        .header-right { gap: 12px; align-items: center; }
+        .whoami { font-size: .82rem; white-space: nowrap; }
+        .whoami .lbl { display: none; }   /* just the doctor's name */
+        .back { white-space: nowrap; font-size: .86rem; }
+        .hero h1 { font-size: 1.35rem; }
+        .hero p { font-size: .86rem; }
+
+        .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .stat { padding: 10px; }
+        .stat h3 { font-size: .68rem; }
+        .stat .val { font-size: 1.15rem; }
+
+        .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+        .toolbar-group { width: 100%; }
+        .toolbar-group .field { flex: 1; }
+        .legend { order: 2; }
+        #refreshBtn { width: 100%; padding: 12px; }
+
+        /* The table, rebuilt as cards. */
+        .table-wrap { max-height: none; overflow: visible; border: 0; }
+        table, tbody, tr, td { display: block; width: 100%; }
+        thead, tfoot { display: none; }
+        tbody tr {
+          background: #fff !important;
+          border: 1px solid rgba(15, 23, 42, .1);
+          border-radius: 14px;
+          padding: 10px 12px;
+          margin-bottom: 10px;
+          box-shadow: 0 4px 12px rgba(2, 32, 71, .06);
+        }
+        tbody tr.has-charge { border-color: #86efac; background: #f6fdf8 !important; }
+        tbody tr.row-void { border-color: #fecaca; background: #fff5f5 !important; }
+        tbody td {
+          border: 0 !important;
+          padding: 5px 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 12px;
+          text-align: right;
+        }
+        tbody td::before {
+          content: attr(data-label);
+          font-weight: 800;
+          color: var(--muted);
+          font-size: .78rem;
+          text-transform: uppercase;
+          letter-spacing: .03em;
+          text-align: left;
+          flex: 0 0 auto;
+        }
+        /* The first cell is the card's heading: time and patient together. */
+        tbody td.m-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 1.02rem;
+          font-weight: 800;
+          padding: 2px 0 8px;
+          border-bottom: 1px solid var(--grid) !important;
+          margin-bottom: 6px;
+          text-align: left;
+        }
+        tbody td.m-head::before { content: none; }
+        tbody td.m-hide { display: none; }
+        tbody td.m-action { padding-top: 10px; }
+        tbody td.m-action::before { content: none; }
+        tbody td.m-action .btn {
+          width: 100%;
+          padding: 13px;
+          font-size: 1rem;
+          border-radius: 12px;
+        }
+        tbody tr td.empty { display: block; text-align: center; }
+        tbody tr td.empty::before { content: none; }
+
+        /* Dialogs: full width, and 16px inputs so iOS does not zoom in. */
+        .dialog { width: 100%; padding: 14px; border-radius: 16px; }
+        .form-grid { grid-template-columns: 1fr; }
+        input, select { font-size: 16px; padding: 12px; }
+        label { font-size: .95rem; }
+        .row { flex-wrap: wrap; }
+        .row .btn { flex: 1 1 46%; padding: 13px; font-size: 1rem; }
+        #chargeDelete { flex-basis: 100%; margin-right: 0 !important; order: 3; }
+      }
     </style>
   </head>
   <body>
@@ -24,7 +124,7 @@
         <span class="name">Ruwais Medical Center</span>
       </div>
       <div class="header-right">
-        <span class="whoami">Signed in as <strong id="whoAmI">—</strong></span>
+        <span class="whoami"><span class="lbl">Signed in as </span><strong id="whoAmI">—</strong></span>
         <a class="back" href="#" id="logoutBtn" aria-label="Log out">Log out</a>
       </div>
     </header>
@@ -307,19 +407,29 @@
               }`
             : `<span class="muted">—</span>`;
 
+          // On a phone the CSS turns each row into a card: m-head becomes the
+          // card title, data-label captions every other cell, and m-hide drops
+          // what the title already says.
+          const nameHtml = `<span class="${voided ? "void-name" : ""}">${esc(
+            a.patientName || "(no name)"
+          )}</span>${voided ? ' <span class="tag void">VOID</span>' : ""}`;
+
           tr.innerHTML = `
-            <td class="appt-time">${fmtTime(toJsDate(a.startAt))}</td>
-            <td><span class="${voided ? "void-name" : ""}">${esc(a.patientName || "(no name)")}</span>${
-              voided ? ' <span class="tag void">VOID</span>' : ""
+            <td class="appt-time m-hide" data-label="Time">${fmtTime(toJsDate(a.startAt))}</td>
+            <td class="m-head">
+              <span>${nameHtml}</span>
+              <span class="appt-time">${fmtTime(toJsDate(a.startAt))}</span>
+            </td>
+            <td data-label="File #">${esc(a.patientFileNumber ?? "—")}</td>
+            <td data-label="Procedure">${procCell}</td>
+            <td class="right" data-label="Amount">${
+              amount == null ? '<span class="muted">—</span>' : fmtMoney(amount)
             }</td>
-            <td>${esc(a.patientFileNumber ?? "—")}</td>
-            <td>${procCell}</td>
-            <td class="right">${amount == null ? '<span class="muted">—</span>' : fmtMoney(amount)}</td>
-            <td class="right ${amount ? "amt-in" : "muted"}">${
+            <td class="right ${amount ? "amt-in" : "muted"}" data-label="My 40%">${
               amount == null ? "—" : fmtMoney(doctorShare(amount))
             }</td>
-            <td>${statusTag(c)}</td>
-            <td class="right">
+            <td data-label="Status">${statusTag(c)}</td>
+            <td class="right m-action">
               <button class="btn ${c ? "btn-secondary" : ""} btn-sm" data-act="set" ${
                 locked ? "disabled title='Already collected — ask reception to change it'" : ""
               }>${c ? "Edit" : "Set charge"}</button>
