@@ -295,7 +295,7 @@
 
   /* Where a user lands after signing in. */
   function homeFor(user) {
-    return (user || currentUser()).role === "doctor" ? "DoctorCharges.html" : "main.html";
+    return (user || currentUser()).role === "doctor" ? "DoctorCharges.html" : "Main.html";
   }
 
   /* Spread into every Firestore write so each record carries its author. */
