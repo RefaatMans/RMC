@@ -219,6 +219,7 @@
   const K_ID   = "rmcUserId";
   const K_NAME = "rmcUserName";
   const K_ROLE = "rmcUserRole";
+  const K_DOC  = "rmcDoctorId";   // only set for role === "doctor"
   const K_AT   = "rmcLoginAt";
 
   function isSignedIn() {
@@ -234,9 +235,11 @@
         // Sessions created before users existed only carry "admin".
         name: SS.getItem(K_NAME) || username || "admin",
         role: SS.getItem(K_ROLE) || (username === "admin" ? "admin" : "user"),
+        // Which doctor record a doctor account speaks for.
+        doctorId: SS.getItem(K_DOC) || null,
       };
     } catch (e) {
-      return { id: null, username: "", name: "admin", role: "admin" };
+      return { id: null, username: "", name: "admin", role: "admin", doctorId: null };
     }
   }
 
@@ -246,11 +249,13 @@
     SS.setItem(K_ID, user.id || user.username || "");
     SS.setItem(K_NAME, user.name || user.username || "");
     SS.setItem(K_ROLE, user.role || "user");
+    if (user.doctorId) SS.setItem(K_DOC, user.doctorId);
+    else SS.removeItem(K_DOC);
     SS.setItem(K_AT, String(Date.now()));
   }
 
   function signOut() {
-    [K_AUTH, K_USER, K_ID, K_NAME, K_ROLE, K_AT].forEach((k) => {
+    [K_AUTH, K_USER, K_ID, K_NAME, K_ROLE, K_DOC, K_AT].forEach((k) => {
       try { SS.removeItem(k); } catch (e) {}
     });
     global.location.replace("index.html");
@@ -272,6 +277,25 @@
       return false;
     }
     return true;
+  }
+
+  const isDoctor = () => currentUser().role === "doctor";
+
+  /* A doctor account may only ever reach its own screen. */
+  function requireDoctor() {
+    if (!requireAuth()) return false;
+    const u = currentUser();
+    if (u.role !== "doctor" || !u.doctorId) {
+      alert("This page is for doctor accounts.");
+      global.location.replace("Main.html");
+      return false;
+    }
+    return true;
+  }
+
+  /* Where a user lands after signing in. */
+  function homeFor(user) {
+    return (user || currentUser()).role === "doctor" ? "DoctorCharges.html" : "Main.html";
   }
 
   /* Spread into every Firestore write so each record carries its author. */
@@ -302,6 +326,7 @@
     PW_ALGO, PW_ITERATIONS,
     // session
     isSignedIn, currentUser, signIn, signOut, requireAuth, requireAdmin,
+    isDoctor, requireDoctor, homeFor,
     stamp, paintWhoAmI,
     // exposed for debugging / tests
     _sha256: sha256, _pbkdf2Js: pbkdf2Js, _toB64: toB64,

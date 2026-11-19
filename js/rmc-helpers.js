@@ -109,6 +109,30 @@
     return VOID_NOTE_STEMS.some((w) => t.includes(w));
   }
 
+  /* The clinic's procedure list. Add, rename or reorder freely — the doctor's
+     screen builds its dropdown from this and stores the label as typed here.
+     "Other" is always offered on top of these and requires a note. */
+  const PROCEDURES = [
+    "Fiber post",
+    "Scaling",
+    "Composite",
+    "Veneers",
+    "Extraction (simple)",
+    "Extraction (surgical)",
+    "Endo",
+    "Consult",
+    "Retreatment",
+    "Implant",
+    "Whitening",
+    "Crown",
+  ];
+  const OTHER_PROCEDURE = "Other";
+
+  /* The doctor's cut of a collected amount. */
+  const DOCTOR_RATE = 0.4;
+  const doctorShare = (amount) => (Number(amount) || 0) * DOCTOR_RATE;
+  const centerShare = (amount) => (Number(amount) || 0) * (1 - DOCTOR_RATE);
+
   /* Escape text before it goes into innerHTML. */
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -130,5 +154,6 @@
     pad2, toJsDate, fmtMoney, fmtDate, fmtTime, fmtDateTime, todayISO,
     dayBounds, stampedDate, byName, cashMoment, cashSigned, newOpId,
     showToast, esc, firebaseConfig, isVoidNote, VOID_NOTE_STEMS,
+    PROCEDURES, OTHER_PROCEDURE, DOCTOR_RATE, doctorShare, centerShare,
   };
 })(window);

@@ -59,7 +59,7 @@
               <tr>
                 <th>Username</th>
                 <th>Display name</th>
-                <th style="width: 90px">Role</th>
+                <th style="width: 110px">Role</th>
                 <th style="width: 90px">Status</th>
                 <th style="width: 170px">Created</th>
                 <th style="width: 170px">Last sign-in</th>
@@ -91,7 +91,8 @@
             <div class="field">
               <label for="role">Role</label>
               <select id="role" name="role">
-                <option value="user">User</option>
+                <option value="user">Nurse / staff</option>
+                <option value="doctor">Doctor</option>
                 <option value="admin">Administrator</option>
               </select>
             </div>
@@ -102,6 +103,16 @@
                 <option value="false">Disabled</option>
               </select>
             </div>
+            <div class="field full" id="doctorField" style="display:none">
+              <label for="doctorPick">Which doctor? *</label>
+              <select id="doctorPick">
+                <option value="">Select a doctor</option>
+              </select>
+              <small class="muted">
+                The account will only ever show this doctor's own appointments.
+              </small>
+            </div>
+
             <div class="field full">
               <label for="password">Password <span id="pwReq">*</span></label>
               <input id="password" name="password" type="text" autocomplete="off" placeholder="At least 6 characters" />
@@ -130,7 +141,7 @@
       import {
         initializeFirestore,
         collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
-        serverTimestamp,
+        query, where, serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
       import {
         getAuth, signInAnonymously,
@@ -177,6 +188,8 @@
       const usernameEl = document.getElementById("username");
       const displayNameEl = document.getElementById("displayName");
       const roleEl = document.getElementById("role");
+      const doctorField = document.getElementById("doctorField");
+      const doctorPick = document.getElementById("doctorPick");
       const activeEl = document.getElementById("active");
       const passwordEl = document.getElementById("password");
       const pwReq = document.getElementById("pwReq");
@@ -184,7 +197,44 @@
       const saveBtn = document.getElementById("userSave");
 
       let users = [];
+      let doctors = [];
       let editingId = null; // null = creating
+
+      const ROLE_LABEL = { admin: "Admin", doctor: "Doctor", user: "Nurse" };
+      const ROLE_CLASS = { admin: "admin", doctor: "appt", user: "user" };
+
+      function roleTag(u) {
+        const r = u.role === "admin" || u.role === "doctor" ? u.role : "user";
+        const who =
+          r === "doctor" && u.doctorName ? ` ${esc(u.doctorName)}` : "";
+        return `<span class="tag ${ROLE_CLASS[r]}">${ROLE_LABEL[r]}</span>${
+          who ? `<br><small class="muted">${who}</small>` : ""
+        }`;
+      }
+
+      // The doctor picker only matters for a doctor account.
+      function syncDoctorField() {
+        const on = roleEl.value === "doctor";
+        doctorField.style.display = on ? "" : "none";
+        if (!on) doctorPick.value = "";
+      }
+      roleEl.addEventListener("change", syncDoctorField);
+
+      async function loadDoctors() {
+        const snap = await getDocs(collection(db, "doctors"));
+        doctors = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
+        doctorPick.innerHTML = `<option value="">${
+          doctors.length ? "Select a doctor" : "No doctors on file yet"
+        }</option>`;
+        for (const d of doctors) {
+          const o = document.createElement("option");
+          o.value = d.id;
+          o.textContent = d.name || "(no name)";
+          doctorPick.appendChild(o);
+        }
+      }
 
       const esc = (s) =>
         String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -208,7 +258,10 @@
       /* ------------------------------------------------------------ load */
       async function load() {
         await ensureAuthed();
-        const snap = await getDocs(collection(db, "users"));
+        const [snap] = await Promise.all([
+          getDocs(collection(db, "users")),
+          loadDoctors(),
+        ]);
         users = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) =>
@@ -254,9 +307,7 @@
               isMe ? ' <span class="tag user">you</span>' : ""
             }</td>
             <td>${esc(u.displayName || u.username || u.id)}</td>
-            <td><span class="tag ${u.role === "admin" ? "admin" : "user"}">${
-              u.role === "admin" ? "Admin" : "User"
-            }</span></td>
+            <td>${roleTag(u)}</td>
             <td><span class="tag ${disabled ? "off" : "paid"}">${
               disabled ? "Disabled" : "Active"
             }</span></td>
@@ -300,6 +351,8 @@
         usernameEl.value = "";
         displayNameEl.value = "";
         roleEl.value = "user";
+        doctorPick.value = "";
+        syncDoctorField();
         activeEl.value = "true";
         passwordEl.value = "";
         pwReq.style.display = "";
@@ -314,7 +367,10 @@
         usernameEl.disabled = true; // the username IS the document id
         usernameEl.value = u.username || u.id;
         displayNameEl.value = u.displayName || u.username || u.id;
-        roleEl.value = u.role === "admin" ? "admin" : "user";
+        roleEl.value =
+          u.role === "admin" || u.role === "doctor" ? u.role : "user";
+        doctorPick.value = u.doctorId || "";
+        syncDoctorField();
         activeEl.value = u.active === false ? "false" : "true";
         passwordEl.value = "";
         pwReq.style.display = "none";
@@ -336,7 +392,26 @@
 
         const username = (usernameEl.value || "").trim();
         const displayName = (displayNameEl.value || "").trim() || username;
-        const role = roleEl.value === "admin" ? "admin" : "user";
+        const role =
+          roleEl.value === "admin" || roleEl.value === "doctor"
+            ? roleEl.value
+            : "user";
+        const doctorId = role === "doctor" ? doctorPick.value : "";
+        if (role === "doctor" && !doctorId) {
+          showToast("Pick which doctor this account belongs to.");
+          return;
+        }
+        // Two accounts pointing at the same doctor would both claim the same
+        // appointments, so block it rather than let it happen quietly.
+        if (doctorId) {
+          const clash = users.find(
+            (u) => u.doctorId === doctorId && u.id !== editingId
+          );
+          if (clash) {
+            showToast(`${clash.username || clash.id} is already linked to that doctor.`);
+            return;
+          }
+        }
         const active = activeEl.value !== "false";
         const password = passwordEl.value || "";
 
@@ -361,6 +436,8 @@
 
         // Don't let an admin lock everyone out of this page.
         if (editingId && (role !== "admin" || !active)) {
+          // A doctor or nurse account cannot administer, so demoting the last
+          // admin would lock everyone out of this page.
           const otherActiveAdmins = users.filter(
             (u) => u.id !== editingId && u.role === "admin" && u.active !== false
           );
@@ -376,12 +453,15 @@
         saveBtn.textContent = "Saving…";
         try {
           await ensureAuthed();
+          const picked = doctors.find((d) => d.id === doctorId) || null;
           const payload = {
             username,
             usernameLower: id,
             displayName,
             role,
             active,
+            doctorId: doctorId || null,
+            doctorName: picked ? picked.name || null : null,
             updatedAt: serverTimestamp(),
             ...RMC.stamp(),
           };

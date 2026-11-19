@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — My Appointments</title>
+    <link rel="stylesheet" href="./css/rmc.css" />
+    <style>
+      .appt-time { font-weight: 800; white-space: nowrap; }
+      /* m-head is the phone card's title; it has no place in the wide table. */
+      @media (min-width: 761px) { td.m-head { display: none; } }
+      tr.has-charge { background: #f3fbf5 !important; }
+      tr.has-charge:hover { background: #e9f7ee !important; }
+      .proc-cell { font-weight: 700; }
+      .note-line { color: var(--muted); font-size: .8rem; }
+      .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
+      .legend span { display: inline-flex; align-items: center; gap: 5px; }
+      .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+      /* ==================================================================
+         Phone layout. Doctors use this on their phones, so below 760px the
+         table stops being a table: each appointment becomes a card, every
+         cell carries its own label, and the action is a full-width button
+         big enough to hit with a thumb.
+         ================================================================== */
+      @media (max-width: 760px) {
+        .wrap { margin: 0 12px 32px; }
+        .header { padding: 10px 14px; }
+        .brand img { width: 32px; height: 32px; }
+        /* The clinic name costs a whole line on a phone; the logo says it. */
+        .name { display: none; }
+        .header-right { gap: 12px; align-items: center; }
+        .whoami { font-size: .82rem; white-space: nowrap; }
+        .whoami .lbl { display: none; }   /* just the doctor's name */
+        .back { white-space: nowrap; font-size: .86rem; }
+        .hero h1 { font-size: 1.35rem; }
+        .hero p { font-size: .86rem; }
+
+        .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .stat { padding: 10px; }
+        .stat h3 { font-size: .68rem; }
+        .stat .val { font-size: 1.15rem; }
+
+        .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+        .toolbar-group { width: 100%; }
+        .toolbar-group .field { flex: 1; }
+        .legend { order: 2; }
+        #refreshBtn { width: 100%; padding: 12px; }
+
+        /* The table, rebuilt as cards. */
+        .table-wrap { max-height: none; overflow: visible; border: 0; }
+        table, tbody, tr, td { display: block; width: 100%; }
+        thead, tfoot { display: none; }
+        tbody tr {
+          background: #fff !important;
+          border: 1px solid rgba(15, 23, 42, .1);
+          border-radius: 14px;
+          padding: 10px 12px;
+          margin-bottom: 10px;
+          box-shadow: 0 4px 12px rgba(2, 32, 71, .06);
+        }
+        tbody tr.has-charge { border-color: #86efac; background: #f6fdf8 !important; }
+        tbody tr.row-void { border-color: #fecaca; background: #fff5f5 !important; }
+        tbody td {
+          border: 0 !important;
+          padding: 5px 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 12px;
+          text-align: right;
+        }
+        tbody td::before {
+          content: attr(data-label);
+          font-weight: 800;
+          color: var(--muted);
+          font-size: .78rem;
+          text-transform: uppercase;
+          letter-spacing: .03em;
+          text-align: left;
+          flex: 0 0 auto;
+        }
+        /* The first cell is the card's heading: time and patient together. */
+        tbody td.m-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 1.02rem;
+          font-weight: 800;
+          padding: 2px 0 8px;
+          border-bottom: 1px solid var(--grid) !important;
+          margin-bottom: 6px;
+          text-align: left;
+        }
+        tbody td.m-head::before { content: none; }
+        tbody td.m-hide { display: none; }
+        tbody td.m-action { padding-top: 10px; }
+        tbody td.m-action::before { content: none; }
+        tbody td.m-action .btn {
+          width: 100%;
+          padding: 13px;
+          font-size: 1rem;
+          border-radius: 12px;
+        }
+        tbody tr td.empty { display: block; text-align: center; }
+        tbody tr td.empty::before { content: none; }
+
+        /* Dialogs: full width, and 16px inputs so iOS does not zoom in. */
+        .dialog { width: 100%; padding: 14px; border-radius: 16px; }
+        .form-grid { grid-template-columns: 1fr; }
+        input, select { font-size: 16px; padding: 12px; }
+        label { font-size: .95rem; }
+        .row { flex-wrap: wrap; }
+        .row .btn { flex: 1 1 46%; padding: 13px; font-size: 1rem; }
+        #chargeDelete { flex-basis: 100%; margin-right: 0 !important; order: 3; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand">
+        <img src="./assets/LogoCircle.png" alt="Logo" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <div class="header-right">
+        <span class="whoami"><span class="lbl">Signed in as </span><strong id="whoAmI">—</strong></span>
+        <a class="back" href="#" id="logoutBtn" aria-label="Log out">Log out</a>
+      </div>
+    </header>
+
+    <main class="wrap" role="main">
+      <section class="hero">
+        <h1>My Appointments</h1>
+        <p>Set the procedure and what to charge. Reception collects the money.</p>
+      </section>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <div class="field">
+              <label for="day">Date</label>
+              <input id="day" type="date" />
+            </div>
+          </div>
+          <div class="toolbar-group">
+            <div class="legend">
+              <span><i class="dot" style="background:#bbf7d0"></i> charge set</span>
+              <span><i class="dot" style="background:#fff1f1"></i> cancelled</span>
+            </div>
+            <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+        <div class="count" id="scopeNote">Loading…</div>
+      </section>
+
+      <section class="card" style="background: transparent; border: 0; box-shadow: none; padding: 0; margin-top: 16px">
+        <div class="stats">
+          <div class="stat"><h3>Appointments</h3><div class="val" id="sCount">0</div></div>
+          <div class="stat"><h3>Charges set</h3><div class="val" id="sSet">0</div></div>
+          <div class="stat"><h3>Total charged</h3><div class="val" id="sTotal">0.00</div></div>
+          <div class="stat"><h3>My 40%</h3><div class="val in" id="sShare">0.00</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 82px">Time</th>
+                <th>Patient</th>
+                <th style="width: 80px">File #</th>
+                <th>Procedure</th>
+                <th style="width: 100px" class="right">Amount</th>
+                <th style="width: 100px" class="right">My 40%</th>
+                <th style="width: 110px">Status</th>
+                <th style="width: 120px"></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="8" class="empty">Loading…</td></tr>
+            </tbody>
+            <tfoot id="foot" style="display: none">
+              <tr>
+                <td colspan="4">Totals</td>
+                <td class="right" id="footTotal">0.00</td>
+                <td class="right" id="footShare">0.00</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Set the procedure and amount -->
+    <div class="modal" id="chargeModal" role="dialog" aria-modal="true" aria-labelledby="chargeTitle">
+      <div class="dialog">
+        <h3 id="chargeTitle">Set charge</h3>
+        <div class="notice info" id="chargeContext" style="margin-bottom: 12px"></div>
+        <form id="chargeForm" novalidate>
+          <div class="form-grid">
+            <div class="field full">
+              <label for="procedure">Procedure *</label>
+              <select id="procedure" required></select>
+            </div>
+            <div class="field full" id="noteField">
+              <label for="note">Note <span id="noteReq" style="display:none">*</span></label>
+              <input id="note" type="text" placeholder="Anything reception should know" />
+            </div>
+            <div class="field full">
+              <label for="amount">Amount *</label>
+              <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required />
+              <small class="muted" id="shareHint">Your 40%: —</small>
+            </div>
+          </div>
+          <div class="row">
+            <button type="button" class="btn btn-danger" id="chargeDelete" style="display:none; margin-right:auto">Remove charge</button>
+            <button type="button" class="btn btn-secondary" id="chargeCancel">Cancel</button>
+            <button type="submit" class="btn" id="chargeSave">Send to reception</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <footer><small>&copy; <span id="year"></span> RMC Medical Center</small></footer>
+
+    <script src="./js/rmc-auth.js"></script>
+    <script src="./js/rmc-helpers.js"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore, collection, doc, getDocs, setDoc, updateDoc,
+        deleteDoc, query, where, orderBy, serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth, signInAnonymously,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+      const app = initializeApp(RMCH.firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+      const auth = getAuth(app);
+      let authPromise = null;
+      function ensureAuthed() {
+        if (auth.currentUser) return Promise.resolve(auth.currentUser);
+        if (!authPromise) {
+          authPromise = signInAnonymously(auth)
+            .then((c) => c.user)
+            .catch((e) => { authPromise = null; throw e; });
+        }
+        return authPromise;
+      }
+
+      const {
+        newOpId, toJsDate, fmtMoney, fmtTime, todayISO, dayBounds,
+        isVoidNote, showToast, esc, doctorShare,
+        PROCEDURES, OTHER_PROCEDURE,
+      } = RMCH;
+
+      // Doctor accounts only — and the account must name which doctor it is.
+      if (!RMC.requireDoctor()) throw new Error("not a doctor account");
+      const ME = RMC.currentUser();
+      RMC.paintWhoAmI("#whoAmI");
+      document.getElementById("year").textContent = new Date().getFullYear();
+      document.getElementById("logoutBtn").addEventListener("click", (e) => {
+        e.preventDefault();
+        RMC.signOut();
+      });
+
+      const dayEl = document.getElementById("day");
+      const rowsEl = document.getElementById("rows");
+      const footEl = document.getElementById("foot");
+      const scopeNote = document.getElementById("scopeNote");
+      const modal = document.getElementById("chargeModal");
+      const form = document.getElementById("chargeForm");
+      const procedureEl = document.getElementById("procedure");
+      const noteEl = document.getElementById("note");
+      const noteReq = document.getElementById("noteReq");
+      const amountEl = document.getElementById("amount");
+      const shareHint = document.getElementById("shareHint");
+      const saveBtn = document.getElementById("chargeSave");
+      const deleteBtn = document.getElementById("chargeDelete");
+      const chargeContext = document.getElementById("chargeContext");
+
+      let appts = [];
+      let chargeByAppt = new Map();
+      let pending = null; // the appointment being edited
+
+      // Build the dropdown from the shared list.
+      procedureEl.innerHTML =
+        `<option value="">Select a procedure</option>` +
+        PROCEDURES.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join("") +
+        `<option value="${esc(OTHER_PROCEDURE)}">${esc(OTHER_PROCEDURE)}…</option>`;
+
+      function syncNoteRequirement() {
+        const other = procedureEl.value === OTHER_PROCEDURE;
+        noteReq.style.display = other ? "" : "none";
+        noteEl.placeholder = other
+          ? "Describe the procedure"
+          : "Anything reception should know";
+      }
+      procedureEl.addEventListener("change", syncNoteRequirement);
+      amountEl.addEventListener("input", () => {
+        const v = Number(amountEl.value);
+        shareHint.textContent = isFinite(v) && v > 0
+          ? `Your 40%: ${fmtMoney(doctorShare(v))}`
+          : "Your 40%: —";
+      });
+
+      /* ----------------------------------------------------------- load */
+      async function refresh() {
+        const dateStr = dayEl.value;
+        if (!dateStr) return;
+        rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+        try {
+          await ensureAuthed();
+          const [start, end] = dayBounds(dateStr);
+          // Query the day only and pick out this doctor in JS. Pairing an
+          // equality filter with a range on another field would need a
+          // composite index built by hand in the Firebase console.
+          const [apptSnap, chargeSnap] = await Promise.all([
+            getDocs(
+              query(
+                collection(db, "appointments"),
+                where("startAt", ">=", start),
+                where("startAt", "<", end),
+                orderBy("startAt", "asc")
+              )
+            ),
+            getDocs(
+              query(
+                collection(db, "charges"),
+                where("appointmentAt", ">=", start),
+                where("appointmentAt", "<", end)
+              )
+            ),
+          ]);
+          appts = apptSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((a) => a.doctorId === ME.doctorId);
+          chargeByAppt = new Map();
+          for (const d of chargeSnap.docs) {
+            const c = { id: d.id, ...d.data() };
+            if (c.doctorId !== ME.doctorId) continue;
+            if (c.status !== "cancelled") chargeByAppt.set(c.appointmentId, c);
+          }
+          render();
+        } catch (err) {
+          console.error(err);
+          const code = (err && (err.code || err.message)) || "";
+          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">${
+            /permission-denied|insufficient/i.test(code)
+              ? "The database refused the request. The rules need to allow the 'charges' collection."
+              : "Couldn't load your appointments."
+          }</td></tr>`;
+          footEl.style.display = "none";
+          scopeNote.textContent = "—";
+        }
+      }
+
+      function statusTag(c) {
+        if (!c) return '<span class="tag off">Not set</span>';
+        if (c.status === "collected") return '<span class="tag paid">Collected</span>';
+        return '<span class="tag due">Awaiting reception</span>';
+      }
+
+      function render() {
+        let total = 0, setCount = 0;
+        for (const a of appts) {
+          const c = chargeByAppt.get(a.id);
+          if (c) { total += Number(c.amount || 0); setCount++; }
+        }
+        document.getElementById("sCount").textContent = String(appts.length);
+        document.getElementById("sSet").textContent = String(setCount);
+        document.getElementById("sTotal").textContent = fmtMoney(total);
+        document.getElementById("sShare").textContent = fmtMoney(doctorShare(total));
+        scopeNote.textContent = `${appts.length} appointment${
+          appts.length === 1 ? "" : "s"
+        } on ${dayEl.value}`;
+
+        rowsEl.innerHTML = "";
+        if (!appts.length) {
+          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">No appointments on this day.</td></tr>`;
+          footEl.style.display = "none";
+          return;
+        }
+
+        for (const a of appts) {
+          const c = chargeByAppt.get(a.id);
+          const voided = isVoidNote(a.comment);
+          const amount = c ? Number(c.amount || 0) : null;
+          const locked = c && c.status === "collected";
+
+          const tr = document.createElement("tr");
+          if (voided) tr.className = "row-void";
+          else if (c) tr.className = "has-charge";
+
+          const procCell = c
+            ? `<span class="proc-cell">${esc(c.procedure || "—")}</span>${
+                c.note ? `<div class="note-line">${esc(c.note)}</div>` : ""
+              }`
+            : `<span class="muted">—</span>`;
+
+          // On a phone the CSS turns each row into a card: m-head becomes the
+          // card title, data-label captions every other cell, and m-hide drops
+          // what the title already says.
+          const nameHtml = `<span class="${voided ? "void-name" : ""}">${esc(
+            a.patientName || "(no name)"
+          )}</span>${voided ? ' <span class="tag void">VOID</span>' : ""}`;
+
+          tr.innerHTML = `
+            <td class="appt-time m-hide" data-label="Time">${fmtTime(toJsDate(a.startAt))}</td>
+            <td class="m-head">
+              <span>${nameHtml}</span>
+              <span class="appt-time">${fmtTime(toJsDate(a.startAt))}</span>
+            </td>
+            <td data-label="File #">${esc(a.patientFileNumber ?? "—")}</td>
+            <td data-label="Procedure">${procCell}</td>
+            <td class="right" data-label="Amount">${
+              amount == null ? '<span class="muted">—</span>' : fmtMoney(amount)
+            }</td>
+            <td class="right ${amount ? "amt-in" : "muted"}" data-label="My 40%">${
+              amount == null ? "—" : fmtMoney(doctorShare(amount))
+            }</td>
+            <td data-label="Status">${statusTag(c)}</td>
+            <td class="right m-action">
+              <button class="btn ${c ? "btn-secondary" : ""} btn-sm" data-act="set" ${
+                locked ? "disabled title='Already collected — ask reception to change it'" : ""
+              }>${c ? "Edit" : "Set charge"}</button>
+            </td>`;
+          rowsEl.appendChild(tr);
+          const btn = tr.querySelector('[data-act="set"]');
+          if (!locked) btn.addEventListener("click", () => openCharge(a, c));
+        }
+
+        document.getElementById("footTotal").textContent = fmtMoney(total);
+        document.getElementById("footShare").textContent = fmtMoney(doctorShare(total));
+        footEl.style.display = "";
+      }
+
+      /* --------------------------------------------------------- modal */
+      function openCharge(appt, existing) {
+        pending = { appt, existing: existing || null };
+        document.getElementById("chargeTitle").textContent = existing
+          ? "Edit charge"
+          : "Set charge";
+        chargeContext.innerHTML = `
+          <strong>${esc(appt.patientName || "(no name)")}</strong>
+          — ${fmtTime(toJsDate(appt.startAt))}
+          ${appt.patientFileNumber ? ` · file #${esc(appt.patientFileNumber)}` : ""}`;
+        procedureEl.value = existing ? existing.procedure || "" : "";
+        noteEl.value = existing ? existing.note || "" : "";
+        amountEl.value = existing ? existing.amount ?? "" : "";
+        syncNoteRequirement();
+        amountEl.dispatchEvent(new Event("input"));
+        deleteBtn.style.display = existing ? "" : "none";
+        modal.classList.add("show");
+        setTimeout(() => procedureEl.focus(), 50);
+      }
+
+      function closeCharge() {
+        modal.classList.remove("show");
+        pending = null;
+        form.reset();
+        shareHint.textContent = "Your 40%: —";
+      }
+      document.getElementById("chargeCancel").addEventListener("click", closeCharge);
+      modal.addEventListener("click", (e) => { if (e.target === modal) closeCharge(); });
+
+      let busy = false;
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (busy || !pending) return;
+
+        const procedure = procedureEl.value;
+        const note = (noteEl.value || "").trim();
+        const amount = Number(amountEl.value);
+
+        if (!procedure) { showToast("Pick a procedure."); return; }
+        if (procedure === OTHER_PROCEDURE && !note) {
+          showToast("Describe the procedure in the note.");
+          return;
+        }
+        if (!isFinite(amount) || amount <= 0) {
+          showToast("Enter an amount greater than zero.");
+          return;
+        }
+
+        const { appt, existing } = pending;
+        busy = true;
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Sending…";
+        try {
+          await ensureAuthed();
+          const id = existing ? existing.id : newOpId();
+          const payload = {
+            appointmentId: appt.id,
+            appointmentAt: toJsDate(appt.startAt),
+            doctorId: ME.doctorId,
+            doctorName: appt.doctorName || ME.name,
+            patientId: appt.patientId || null,
+            patientName: appt.patientName || "",
+            patientFileNumber: appt.patientFileNumber ?? null,
+            procedure,
+            note,
+            amount,
+            status: "pending",
+            updatedAt: serverTimestamp(),
+            ...RMC.stamp(),
+          };
+          if (existing) {
+            await updateDoc(doc(db, "charges", id), payload);
+          } else {
+            payload.createdAt = serverTimestamp();
+            await setDoc(doc(db, "charges", id), payload);
+          }
+          chargeByAppt.set(appt.id, { id, ...payload });
+          closeCharge();
+          render();
+          showToast(existing ? "Charge updated." : "Sent to reception.");
+        } catch (err) {
+          console.error(err);
+          const code = (err && (err.code || err.message)) || "";
+          showToast(
+            /permission-denied|insufficient/i.test(code)
+              ? "The database refused it — the rules need to allow 'charges'."
+              : "Couldn't send the charge."
+          );
+        } finally {
+          busy = false;
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Send to reception";
+        }
+      });
+
+      deleteBtn.addEventListener("click", async () => {
+        if (!pending || !pending.existing) return;
+        if (!confirm("Remove this charge? Reception will no longer see it.")) return;
+        try {
+          await ensureAuthed();
+          await deleteDoc(doc(db, "charges", pending.existing.id));
+          chargeByAppt.delete(pending.appt.id);
+          closeCharge();
+          render();
+          showToast("Charge removed.");
+        } catch (err) {
+          console.error(err);
+          showToast("Couldn't remove the charge.");
+        }
+      });
+
+      /* ---------------------------------------------------------- init */
+      dayEl.addEventListener("change", refresh);
+      document.getElementById("refreshBtn").addEventListener("click", refresh);
+
+      (async () => {
+        try {
+          await ensureAuthed();
+          dayEl.value = todayISO();
+          await refresh();
+        } catch (err) {
+          console.error(err);
+          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Couldn't connect.</td></tr>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

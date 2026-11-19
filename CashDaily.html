@@ -39,11 +39,34 @@
     .ts-wrapper.focus .ts-control{ border-color:var(--primary) !important; box-shadow:0 0 0 4px var(--ring) !important }
     .scope{ color:var(--muted); font-size:.85rem; margin-top:6px }
   </style>
+    <style>
+      /* ---- printable daily sheet / doctor receipt ---- */
+      #printArea { display: none; }
+      @media print {
+        body.printing > *:not(#printArea) { display: none !important; }
+        body.printing #printArea { display: block !important; }
+        body.printing { background: #fff; }
+        @page { size: A4 portrait; margin: 10mm; }
+      }
+      #printArea .dr-head { text-align: center; margin-bottom: 10px; }
+      #printArea .dr-head .t1 { font-size: 1.25rem; font-weight: 900; color: #1f6fff; }
+      #printArea .dr-head .t2 { font-size: 1.02rem; font-weight: 800; letter-spacing: .04em; }
+      #printArea .dr-head .t3 { font-size: .9rem; color: #475569; }
+      #printArea table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+      #printArea th, #printArea td { border: 1px solid #334155; padding: 3px 5px; }
+      #printArea th { background: #e8f0fe; font-weight: 800; text-align: center; }
+      #printArea td.c { text-align: center; }
+      #printArea td.r { text-align: right; }
+      #printArea tfoot td { font-weight: 900; background: #f1f5f9; }
+      #printArea .dr-sign { margin-top: 34px; display: flex; justify-content: space-between; gap: 40px; }
+      #printArea .dr-sign div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: .82rem; color: #475569; }
+      #printArea .dr-foot { margin-top: 10px; font-size: .74rem; color: #64748b; display: flex; justify-content: space-between; }
+    </style>
 </head>
 <body>
   <header class="header">
     <div class="brand"><img src="./assets/LogoCircle.png" alt="Logo" style="width:8%"><span>Ruwais Medical Center</span></div>
-    <a class="back" href="cashhome.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Back</a>
+    <a class="back" href="CashHome.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Back</a>
   </header>
 
   <main class="wrap">
@@ -57,7 +80,8 @@
           <option value="">All doctors</option>
         </select>
 
-        <button id="refreshBtn" style="margin-left:auto; border:0; padding:10px 14px; border-radius:10px; font-weight:800; background:linear-gradient(135deg, var(--accent), var(--primary)); color:#fff; cursor:pointer">Refresh</button>
+        <button id="printBtn" style="margin-left:auto; border:0; padding:10px 14px; border-radius:10px; font-weight:800; background:#eef4ff; color:#1859cc; border:1px solid rgba(31,111,255,.25); cursor:pointer">Print</button>
+        <button id="refreshBtn" style=" border:0; padding:10px 14px; border-radius:10px; font-weight:800; background:linear-gradient(135deg, var(--accent), var(--primary)); color:#fff; cursor:pointer">Refresh</button>
       </div>
       <div class="scope" id="scopeNote">Showing all doctors</div>
     </section>
@@ -68,21 +92,26 @@
         <div class="stat"><h3>Cash Out</h3><div class="amt out" id="sumOut">0.00</div></div>
         <div class="stat"><h3>Net</h3><div class="amt net" id="sumNet">0.00</div></div>
         <div class="stat"><h3>Supplies (20%)</h3><div class="amt supplies" id="sumSupplies">0.00</div></div>
+        <div class="stat"><h3>Doctor 40%</h3><div class="amt in" id="sumDoctor">0.00</div></div>
+        <div class="stat"><h3>Center 60%</h3><div class="amt net" id="sumCenter">0.00</div></div>
       </div>
     </section>
 
     <section class="card">
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:170px">Date/Time</th><th>Patient</th><th>Doctor</th><th>Medical Act</th><th style="width:120px">Type</th><th style="width:120px">Amount</th><th style="width:110px">Recorded by</th></tr></thead>
-          <tbody id="rows"><tr><td colspan="7" class="empty">No entries</td></tr></tbody>
+          <thead><tr><th style="width:170px">Date/Time</th><th>Patient</th><th>Doctor</th><th>Medical Act</th><th style="width:120px">Type</th><th style="width:120px">Amount</th><th style="width:100px">40%</th><th style="width:100px">NET</th><th style="width:110px">Recorded by</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="9" class="empty">No entries</td></tr></tbody>
         </table>
       </div>
     </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+  <div id="printArea"></div>
+
   <script src="./js/rmc-auth.js"></script>
+  <script src="./js/rmc-helpers.js"></script>
 
   <script type="module">
   // Optional: keep your own session check
@@ -116,6 +145,8 @@
   const sumInEl  = document.getElementById('sumIn');
   const sumOutEl = document.getElementById('sumOut');
   const sumNetEl = document.getElementById('sumNet');
+  const sumDoctorEl = document.getElementById('sumDoctor');
+  const sumCenterEl = document.getElementById('sumCenter');
   const sumSuppliesEl = document.getElementById('sumSupplies');
   const refreshBtn = document.getElementById('refreshBtn');
   const doctorFilterEl = document.getElementById('doctorFilter');
@@ -255,11 +286,14 @@
     sumOutEl.textContent = fmtAmt(sumOut);
     sumNetEl.textContent = fmtAmt(net);
     sumSuppliesEl.textContent = fmtAmt(net * SUPPLIES_RATE);
+    // The doctor's cut is taken on money actually collected (cash in).
+    sumDoctorEl.textContent = fmtAmt(RMCH.doctorShare(sumIn));
+    sumCenterEl.textContent = fmtAmt(RMCH.centerShare(sumIn));
 
     // rows
     rows.innerHTML = '';
     if (!data.length){
-      rows.innerHTML = `<tr><td colspan="7" class="empty">No entries</td></tr>`;
+      rows.innerHTML = `<tr><td colspan="9" class="empty">No entries</td></tr>`;
       return;
     }
     for (const x of data){
@@ -274,6 +308,8 @@
           <td>${x.medicalAct || ''}</td>
           <td>${x.type==='in' ? '<span class="in">IN</span>' : '<span class="out">OUT</span>'}</td>
           <td class="${amt<0?'out':'in'}" style="font-weight:800">${fmtAmt(amt)}</td>
+          <td>${x.type==='in' ? fmtAmt(RMCH.doctorShare(x.amount)) : '—'}</td>
+          <td>${x.type==='in' ? fmtAmt(RMCH.centerShare(x.amount)) : '—'}</td>
           <td>${x.recordedByName || '—'}</td>
         </tr>
       `);
@@ -285,12 +321,100 @@
     try {
       if (!user) { await signInAnonymously(auth); return; } // will fire again with user
 
+  /* ---------------- printable daily sheet ----------------
+     Mirrors the paper sign-in sheet: one line per payment with the doctor's
+     40% and the net, plus a total row. It prints whatever is on screen, so
+     choosing a doctor first gives that doctor's receipt. */
+  function buildPrint() {
+    const f = currentDoctor();
+    const data = dayRows.filter(x => matchesDoctor(x, f));
+    const dateStr = dayEl.value || '';
+
+    let n = 0, tAmt = 0, tDoc = 0, tNet = 0;
+    const lines = data.map((x) => {
+      const inbound = x.type === 'in';
+      const amt = Math.abs(Number(x.amount || 0));
+      const d40 = inbound ? RMCH.doctorShare(amt) : 0;
+      const net = inbound ? RMCH.centerShare(amt) : 0;
+      if (inbound) { tAmt += amt; tDoc += d40; tNet += net; }
+      else { tAmt -= amt; tNet -= amt; }
+      const moment = cashMoment(x);
+      const apptAt = x.appointmentAt ? RMCH.toJsDate(x.appointmentAt) : null;
+      return `
+        <tr>
+          <td class="c">${++n}</td>
+          <td class="c">${apptAt ? RMCH.fmtTime(apptAt) : '\u2014'}</td>
+          <td>${RMCH.esc(x.patientName || '')}</td>
+          <td>${RMCH.esc(x.doctorName || '')}</td>
+          <td class="r">${inbound ? fmtAmt(amt) : '(' + fmtAmt(amt) + ')'}</td>
+          <td>${RMCH.esc(x.medicalAct || '')}</td>
+          <td class="r">${inbound ? fmtAmt(d40) : '\u2014'}</td>
+          <td class="r">${inbound ? fmtAmt(net) : '\u2014'}</td>
+          <td class="c">${moment ? RMCH.fmtTime(moment) : '\u2014'}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('printArea').innerHTML = `
+      <div class="dr-head">
+        <div class="t1">Ruwais Medical Center</div>
+        <div class="t2">${f ? 'DOCTOR RECEIPT' : 'DAILY REPORT'}</div>
+        <div class="t3">Date: ${dateStr}${f ? ' \u2022 ' + RMCH.esc(f.name) : ' \u2022 all doctors'}</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:26px">No.</th>
+            <th style="width:62px">Time</th>
+            <th>Patient Name</th>
+            <th style="width:110px">Doctor</th>
+            <th style="width:62px">Amount</th>
+            <th style="width:140px">Status</th>
+            <th style="width:56px">40%</th>
+            <th style="width:62px">NET</th>
+            <th style="width:72px">Transaction</th>
+          </tr>
+        </thead>
+        <tbody>${lines || '<tr><td colspan="9" class="c">No entries</td></tr>'}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="r">Totals</td>
+            <td class="r">${fmtAmt(tAmt)}</td>
+            <td></td>
+            <td class="r">${fmtAmt(tDoc)}</td>
+            <td class="r">${fmtAmt(tNet)}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div class="dr-sign">
+        <div>${f ? 'Doctor signature' : 'Prepared by'}</div>
+        <div>Received by</div>
+      </div>
+      <div class="dr-foot">
+        <span>${f ? RMCH.esc(f.name) + ' \u2014 40% share: ' + fmtAmt(tDoc) : 'All doctors'}</span>
+        <span>Printed ${new Date().toLocaleString()}</span>
+      </div>`;
+  }
+
+  function doPrint() {
+    buildPrint();
+    document.body.classList.add('printing');
+    const cleanup = () => {
+      document.body.classList.remove('printing');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 3000);   // Safari never fires afterprint
+  }
+
       // only run init once we have auth
       document.querySelector('#sumSupplies')
         .closest('.stat').querySelector('h3')
         .textContent = `Supplies (${Math.round(SUPPLIES_RATE * 100)}%)`;
       dayEl.value = todayISO();
       refreshBtn.addEventListener('click', refresh);
+      document.getElementById('printBtn').addEventListener('click', doPrint);
       dayEl.addEventListener('change', refresh);
 
       await loadDoctorFilter();

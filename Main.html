@@ -102,7 +102,7 @@
     <section class="grid">
       <!-- Clinic app -->
       <div class="card">
-        <a class="app" href="home.html">
+        <a class="app" href="Home.html">
           <div class="icon" aria-hidden="true">🩺</div>
           <div class="info">
             <div class="title">Clinic</div>
@@ -113,7 +113,7 @@
 
       <!-- Cash app -->
       <div class="card">
-        <a class="app" href="cashhome.html">
+        <a class="app" href="CashHome.html">
           <div class="icon" aria-hidden="true">💳</div>
           <div class="info">
             <div class="title">Cash In / Out</div>
@@ -143,6 +143,9 @@
   <script>
     // Block access if not logged in
     if (!RMC.requireAuth()) throw new Error('not signed in');
+
+    // Doctors do not use the clinic/cash dashboards.
+    if (RMC.isDoctor()) window.location.replace('DoctorCharges.html');
 
     RMC.paintWhoAmI('#whoAmI');
 
