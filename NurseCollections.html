@@ -247,7 +247,9 @@
             <td><span class="proc-cell">${esc(c.procedure || "—")}</span>${
               c.note ? `<div class="note-line">${esc(c.note)}</div>` : ""
             }</td>
-            <td class="right big-amount">${fmtMoney(amt)}</td>
+            <td class="right big-amount">${
+              amt === 0 ? '<span class="tag off">No charge</span>' : fmtMoney(amt)
+            }</td>
             <td>${
               collected
                 ? `<span class="tag paid">Collected</span><div class="note-line">${esc(
@@ -258,7 +260,9 @@
             <td class="right">${
               collected
                 ? `<button class="btn btn-secondary btn-sm" data-act="undo">Undo</button>`
-                : `<button class="btn btn-in btn-sm" data-act="collect">Mark collected</button>`
+                : `<button class="btn btn-in btn-sm" data-act="collect">${
+                    amt === 0 ? "Mark done" : "Mark collected"
+                  }</button>`
             }</td>`;
           rowsEl.appendChild(tr);
           tr.querySelector('[data-act="collect"]')?.addEventListener("click", () => collect(c));
@@ -273,7 +277,7 @@
       async function collect(c) {
         if (c.status === "collected") return;
         const amount = Number(c.amount || 0);
-        if (!isFinite(amount) || amount <= 0) {
+        if (!isFinite(amount) || amount < 0) {
           showToast("This charge has no valid amount.");
           return;
         }
@@ -312,7 +316,7 @@
             collectedByName: me.name || null,
           });
           render();
-          showToast(`Collected ${fmtMoney(amount)}.`);
+          showToast(amount === 0 ? "Marked done — nothing to collect." : `Collected ${fmtMoney(amount)}.`);
         } catch (err) {
           console.error(err);
           showToast("Couldn't record the collection.");

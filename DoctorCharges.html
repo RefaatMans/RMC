@@ -211,7 +211,7 @@
             </div>
             <div class="field full">
               <label for="amount">Amount *</label>
-              <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required />
+              <input id="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
               <small class="muted" id="shareHint">Your 40%: —</small>
             </div>
           </div>
@@ -308,9 +308,12 @@
       procedureEl.addEventListener("change", syncNoteRequirement);
       amountEl.addEventListener("input", () => {
         const v = Number(amountEl.value);
-        shareHint.textContent = isFinite(v) && v > 0
-          ? `Your 40%: ${fmtMoney(doctorShare(v))}`
-          : "Your 40%: —";
+        shareHint.textContent =
+          amountEl.value.trim() !== "" && isFinite(v) && v >= 0
+            ? v === 0
+              ? "Nothing to collect"
+              : `Your 40%: ${fmtMoney(doctorShare(v))}`
+            : "Your 40%: —";
       });
 
       /* ----------------------------------------------------------- load */
@@ -423,10 +426,14 @@
             <td data-label="File #">${esc(a.patientFileNumber ?? "—")}</td>
             <td data-label="Procedure">${procCell}</td>
             <td class="right" data-label="Amount">${
-              amount == null ? '<span class="muted">—</span>' : fmtMoney(amount)
+              amount == null
+                ? '<span class="muted">—</span>'
+                : amount === 0
+                ? '<span class="tag off">No charge</span>'
+                : fmtMoney(amount)
             }</td>
             <td class="right ${amount ? "amt-in" : "muted"}" data-label="My 40%">${
-              amount == null ? "—" : fmtMoney(doctorShare(amount))
+              amount == null || amount === 0 ? "—" : fmtMoney(doctorShare(amount))
             }</td>
             <td data-label="Status">${statusTag(c)}</td>
             <td class="right m-action">
@@ -487,8 +494,10 @@
           showToast("Describe the procedure in the note.");
           return;
         }
-        if (!isFinite(amount) || amount <= 0) {
-          showToast("Enter an amount greater than zero.");
+        // Zero is allowed: a free follow-up still goes to reception so they
+        // know the visit is dealt with and nothing is owed.
+        if (amountEl.value.trim() === "" || !isFinite(amount) || amount < 0) {
+          showToast("Enter an amount. Use 0 if there is nothing to collect.");
           return;
         }
 

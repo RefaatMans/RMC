@@ -125,7 +125,8 @@
       }
 
       input,
-      select {
+      select,
+      #apptNote {
         appearance: none;
         -webkit-appearance: none;
         padding: 12px 14px;
@@ -137,8 +138,17 @@
         color: var(--text);
         transition: border-color 0.15s, box-shadow 0.15s;
       }
+      /* Textarea-only bits, kept off the inputs. */
+      #apptNote {
+        font: inherit;
+        font-size: 1rem;
+        resize: vertical;
+        min-height: 56px;
+        line-height: 1.35;
+      }
       input:focus,
-      select:focus {
+      select:focus,
+      #apptNote:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 4px var(--ring);
       }
@@ -373,6 +383,21 @@
               />
             </div>
 
+            <div class="field full">
+              <label for="apptNote">Note</label>
+              <textarea
+                id="apptNote"
+                name="apptNote"
+                rows="2"
+                placeholder="Optional — saved with the appointment"
+              ></textarea>
+              <small class="muted">
+                Shows in the day's schedule and can be edited there later. A
+                note saying cancelled, rescheduled or postponed marks the visit
+                void.
+              </small>
+            </div>
+
             <div class="actions full">
               <button type="button" class="btn btn-secondary" id="cancelBtn">
                 Cancel
@@ -552,6 +577,7 @@
       const doctorHint = document.getElementById("doctorHint");
       const patientHint = document.getElementById("patientHint");
       const startAtEl = document.getElementById("startAt");
+      const apptNoteEl = document.getElementById("apptNote");
 
       const schedDoctorName = document.getElementById("schedDoctorName");
       const schedDate = document.getElementById("schedDate");
@@ -942,14 +968,26 @@
             createdBy: auth.currentUser?.uid || null,
             patientFileNumber: p.fileNumber ?? null,
             patientPhone: p.phone ?? null,
-            comment: null,
+            comment: (apptNoteEl.value || "").trim() || null,
             ...RMC.stamp(),
           });
 
           showToast("Appointment saved.");
+
+          // Resetting the form wiped the date, which blanked the schedule you
+          // were just looking at. Keep the day and doctor so the new
+          // appointment stays on screen and the next booking carries on from
+          // the same place.
+          const keepWhen = startAtEl.value;
+          const keepDoctor = doctorSel.value;
           form.reset();
           doctorTS?.clear(true);
           patientTS?.clear(true);
+          startAtEl.value = keepWhen;
+          if (keepDoctor) {
+            doctorSel.value = keepDoctor;
+            doctorTS?.setValue(keepDoctor, true);
+          }
           refreshSchedule();
         } catch (err) {
           console.error(err);
