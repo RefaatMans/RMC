@@ -69,6 +69,7 @@
           <div class="stat"><h3>Amount waiting</h3><div class="val due" id="sWaitingAmt">0.00</div></div>
           <div class="stat"><h3>Collected today</h3><div class="val in" id="sDone">0</div></div>
           <div class="stat"><h3>Amount collected</h3><div class="val in" id="sDoneAmt">0.00</div></div>
+          <div class="stat"><h3>On account</h3><div class="val due" id="sAccount">0.00</div></div>
         </div>
       </section>
 
@@ -211,16 +212,20 @@
       }
 
       function render() {
-        let waiting = 0, waitingAmt = 0, done = 0, doneAmt = 0;
+        let waiting = 0, waitingAmt = 0, done = 0, doneAmt = 0, account = 0;
         for (const c of charges) {
           const amt = Number(c.amount || 0);
-          if (c.status === "collected") { done++; doneAmt += amt; }
-          else { waiting++; waitingAmt += amt; }
+          // An on-account charge never becomes cash here, so it is counted
+          // on its own rather than inflating the collected figures.
+          if (c.onAccount) account += amt;
+          if (c.status === "collected") { done++; if (!c.onAccount) doneAmt += amt; }
+          else { waiting++; if (!c.onAccount) waitingAmt += amt; }
         }
         document.getElementById("sWaiting").textContent = String(waiting);
         document.getElementById("sWaitingAmt").textContent = fmtMoney(waitingAmt);
         document.getElementById("sDone").textContent = String(done);
         document.getElementById("sDoneAmt").textContent = fmtMoney(doneAmt);
+        document.getElementById("sAccount").textContent = fmtMoney(account);
 
         const data = visible();
         scopeNote.textContent = `${data.length} charge${data.length === 1 ? "" : "s"} shown`;
@@ -249,7 +254,7 @@
             }</td>
             <td class="right big-amount">${
               amt === 0 ? '<span class="tag off">No charge</span>' : fmtMoney(amt)
-            }</td>
+            }${c.onAccount ? '<div><span class="tag appt">On account</span></div>' : ""}</td>
             <td>${
               collected
                 ? `<span class="tag paid">Collected</span><div class="note-line">${esc(
@@ -261,7 +266,7 @@
               collected
                 ? `<button class="btn btn-secondary btn-sm" data-act="undo">Undo</button>`
                 : `<button class="btn btn-in btn-sm" data-act="collect">${
-                    amt === 0 ? "Mark done" : "Mark collected"
+                    amt === 0 || c.onAccount ? "Mark done" : "Mark collected"
                   }</button>`
             }</td>`;
           rowsEl.appendChild(tr);
@@ -283,6 +288,31 @@
         }
         try {
           await ensureAuthed();
+          const me0 = RMC.currentUser();
+
+          // On account: nothing is taken at the desk, so no cash entry is
+          // written. It is closed off here and added to Account Receivables
+          // by hand.
+          if (c.onAccount) {
+            await updateDoc(doc(db, "charges", c.id), {
+              status: "collected",
+              cashId: null,
+              collectedAt: new Date(),
+              collectedById: me0.id || null,
+              collectedByName: me0.name || null,
+              updatedAt: serverTimestamp(),
+            });
+            Object.assign(c, {
+              status: "collected",
+              cashId: null,
+              collectedAt: new Date(),
+              collectedByName: me0.name || null,
+            });
+            render();
+            showToast(`On account — add ${fmtMoney(amount)} to Account Receivables.`);
+            return;
+          }
+
           const cashId = c.cashId || newOpId();
           await setDoc(doc(db, "cash", cashId), {
             type: "in",
@@ -324,12 +354,10 @@
       }
 
       async function undo(c) {
-        if (
-          !confirm(
-            "Undo this collection?\n\nThe cash entry it created will be removed and the charge goes back to waiting."
-          )
-        )
-          return;
+        const msg = c.cashId
+          ? "Undo this collection?\n\nThe cash entry it created will be removed and the charge goes back to waiting."
+          : "Put this back to waiting?\n\nNothing was taken at the desk, so there is no cash entry to remove. Anything you already added to Account Receivables stays there.";
+        if (!confirm(msg)) return;
         try {
           await ensureAuthed();
           if (c.cashId) await deleteDoc(doc(db, "cash", c.cashId));
