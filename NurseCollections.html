@@ -13,6 +13,15 @@
       tr.done { background: #f3fbf5 !important; }
       tr.done:hover { background: #e9f7ee !important; }
       .big-amount { font-size: 1.02rem; font-weight: 900; }
+      .note-input {
+        width: 100%; padding: 6px 8px; border-radius: 8px;
+        border: 1px solid rgba(15, 23, 42, .14);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+        font: inherit; font-size: .84rem; outline: none;
+      }
+      .note-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+      .note-locked { font-size: .84rem; color: var(--muted); }
+      .note-locked em { color: #94a3b8; }
     </style>
   </head>
   <body>
@@ -83,17 +92,18 @@
                 <th style="width: 80px">File #</th>
                 <th>Doctor</th>
                 <th>Procedure</th>
+                <th style="width: 190px">Note</th>
                 <th style="width: 110px" class="right">Amount</th>
                 <th style="width: 130px">Status</th>
                 <th style="width: 150px"></th>
               </tr>
             </thead>
             <tbody id="rows">
-              <tr><td colspan="8" class="empty">Loading…</td></tr>
+              <tr><td colspan="9" class="empty">Loading…</td></tr>
             </tbody>
             <tfoot id="foot" style="display: none">
               <tr>
-                <td colspan="5">Total shown</td>
+                <td colspan="6">Total shown</td>
                 <td class="right" id="footTotal">0.00</td>
                 <td colspan="2"></td>
               </tr>
@@ -138,7 +148,7 @@
 
       const {
         newOpId, toJsDate, fmtMoney, fmtTime, fmtDateTime, todayISO,
-        dayBounds, byName, showToast, esc,
+        dayBounds, byName, showToast, esc, isVoidNote,
       } = RMCH;
 
       if (!RMC.requireAuth()) throw new Error("not signed in");
@@ -155,6 +165,9 @@
       const scopeNote = document.getElementById("scopeNote");
 
       let charges = [];
+      // The appointment's own note lives on the appointment, not the charge.
+      // Reception needs to see it, because this is where money changes hands.
+      let apptById = new Map();
       // Charges currently being written. Checked synchronously, so a second
       // click is refused before any await can yield to it.
       const inFlight = new Set();
@@ -179,17 +192,27 @@
       async function refresh() {
         const dateStr = dayEl.value;
         if (!dateStr) return;
-        rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+        rowsEl.innerHTML = `<tr><td colspan="9" class="empty">Loading…</td></tr>`;
         try {
           await ensureAuthed();
           const [start, end] = dayBounds(dateStr);
-          const snap = await getDocs(
-            query(
-              collection(db, "charges"),
-              where("appointmentAt", ">=", start),
-              where("appointmentAt", "<", end)
-            )
-          );
+          const [snap, apptSnap] = await Promise.all([
+            getDocs(
+              query(
+                collection(db, "charges"),
+                where("appointmentAt", ">=", start),
+                where("appointmentAt", "<", end)
+              )
+            ),
+            getDocs(
+              query(
+                collection(db, "appointments"),
+                where("startAt", ">=", start),
+                where("startAt", "<", end)
+              )
+            ),
+          ]);
+          apptById = new Map(apptSnap.docs.map((d) => [d.id, d.data()]));
           charges = snap.docs
             .map((d) => ({ id: d.id, ...d.data() }))
             .filter((c) => c.status !== "cancelled")
@@ -198,7 +221,7 @@
         } catch (err) {
           console.error(err);
           const code = (err && (err.code || err.message)) || "";
-          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">${
+          rowsEl.innerHTML = `<tr><td colspan="9" class="empty">${
             /permission-denied|insufficient/i.test(code)
               ? "The database refused the request. The rules need to allow the 'charges' collection."
               : "Couldn't load the charges."
@@ -240,7 +263,7 @@
 
         rowsEl.innerHTML = "";
         if (!data.length) {
-          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Nothing to show.</td></tr>`;
+          rowsEl.innerHTML = `<tr><td colspan="9" class="empty">Nothing to show.</td></tr>`;
           footEl.style.display = "none";
           return;
         }
@@ -250,15 +273,38 @@
           const amt = Number(c.amount || 0);
           total += amt;
           const collected = c.status === "collected";
+          const appt = apptById.get(c.appointmentId) || null;
+          const apptNote = appt ? appt.comment : null;
+          const voided = isVoidNote(apptNote);
+
           const tr = document.createElement("tr");
-          if (collected) tr.className = "done";
+          if (voided) tr.className = "row-void";
+          else if (collected) tr.className = "done";
           tr.innerHTML = `
             <td class="appt-time">${fmtTime(toJsDate(c.appointmentAt))}</td>
-            <td>${esc(c.patientName || "(no name)")}</td>
+            <td><span class="${voided ? "void-name" : ""}">${esc(
+              c.patientName || "(no name)"
+            )}</span>${
+              voided
+                ? ` <span class="tag void">VOID</span><div class="note-line">${esc(
+                    apptNote
+                  )}</div>`
+                : ""
+            }</td>
             <td>${esc(c.patientFileNumber ?? "—")}</td>
             <td>${esc(c.doctorName || "—")}</td>
             <td><span class="proc-cell">${esc(c.procedure || "—")}</span>${
               c.note ? `<div class="note-line">${esc(c.note)}</div>` : ""
+            }</td>
+            <td>${
+              collected
+                ? `<span class="note-locked">${
+                    c.collectionNote ? esc(c.collectionNote) : "<em>—</em>"
+                  }</span>`
+                : `<input class="note-input" type="text" maxlength="140"
+                     placeholder="Optional — saved onto the cash entry"
+                     value="${esc(c.collectionNote || "")}"
+                     aria-label="Note for the cash entry">`
             }</td>
             <td class="right big-amount">${
               amt === 0 ? '<span class="tag off">No charge</span>' : fmtMoney(amt)
@@ -297,7 +343,23 @@
               }
             });
           };
-          once(tr.querySelector('[data-act="collect"]'), () => collect(c));
+          // The note is only read at the moment of collecting — it is never
+          // saved while typing, which is what makes it write-once.
+          const noteInput = tr.querySelector(".note-input");
+          once(tr.querySelector('[data-act="collect"]'), () => {
+            // Taking money for a visit the schedule says was cancelled is
+            // almost always a mistake, so make it a deliberate choice.
+            if (
+              voided &&
+              !confirm(
+                `The appointment note says:\n\n"${apptNote}"\n\n` +
+                  `Collect ${fmtMoney(Number(c.amount || 0))} anyway?`
+              )
+            ) {
+              return Promise.resolve();
+            }
+            return collect(c, noteInput ? noteInput.value : "");
+          });
           once(tr.querySelector('[data-act="undo"]'), () => undo(c));
         }
         document.getElementById("footTotal").textContent = fmtMoney(total);
@@ -306,7 +368,7 @@
 
       // Collecting writes the cash entry. The cash id is kept on the charge so
       // undoing can find it again, and so a double click can't bank it twice.
-      async function collect(c) {
+      async function collect(c, typedNote) {
         // c.status is only updated after the writes below, so on a fast
         // double click both calls got past this check and each wrote its own
         // cash entry. The in-flight set closes that window.
@@ -317,6 +379,7 @@
           return;
         }
         inFlight.add(c.id);
+        const collectionNote = (typedNote || "").trim() || null;
         try {
           await ensureAuthed();
           const me0 = RMC.currentUser();
@@ -328,6 +391,7 @@
             await updateDoc(doc(db, "charges", c.id), {
               status: "collected",
               cashId: null,
+              collectionNote,
               collectedAt: new Date(),
               collectedById: me0.id || null,
               collectedByName: me0.name || null,
@@ -336,6 +400,7 @@
             Object.assign(c, {
               status: "collected",
               cashId: null,
+              collectionNote,
               collectedAt: new Date(),
               collectedByName: me0.name || null,
             });
@@ -358,6 +423,9 @@
             appointmentId: c.appointmentId || null,
             appointmentAt: toJsDate(c.appointmentAt),
             chargeId: c.id,
+            // Written once, at the moment of collecting. Nothing edits a cash
+            // entry afterwards, so this is the record as the desk left it.
+            collectionNote,
             createdAt: serverTimestamp(),
             ...RMC.stamp(),
           });
@@ -365,6 +433,7 @@
           await updateDoc(doc(db, "charges", c.id), {
             status: "collected",
             cashId,
+            collectionNote,
             collectedAt: new Date(),
             collectedById: me.id || null,
             collectedByName: me.name || null,
@@ -373,6 +442,7 @@
           Object.assign(c, {
             status: "collected",
             cashId,
+            collectionNote,
             collectedAt: new Date(),
             collectedByName: me.name || null,
           });
@@ -399,6 +469,7 @@ if (inFlight.has(c.id)) return;
           await updateDoc(doc(db, "charges", c.id), {
             status: "pending",
             cashId: null,
+            collectionNote: null,
             collectedAt: null,
             collectedById: null,
             collectedByName: null,
@@ -407,6 +478,7 @@ if (inFlight.has(c.id)) return;
           Object.assign(c, {
             status: "pending",
             cashId: null,
+            collectionNote: null,
             collectedAt: null,
             collectedByName: null,
           });
@@ -433,7 +505,7 @@ if (inFlight.has(c.id)) return;
           await refresh();
         } catch (err) {
           console.error(err);
-          rowsEl.innerHTML = `<tr><td colspan="8" class="empty">Couldn't connect.</td></tr>`;
+          rowsEl.innerHTML = `<tr><td colspan="9" class="empty">Couldn't connect.</td></tr>`;
         }
       })();
     </script>
