@@ -154,6 +154,14 @@
       const scopeNote = document.getElementById("scopeNote");
 
       let charges = [];
+      // Charges currently being written. Checked synchronously, so a second
+      // click is refused before any await can yield to it.
+      const inFlight = new Set();
+
+      // The cash entry for a charge always gets the same id, so two writes
+      // that race land on the SAME document instead of creating two. This is
+      // what was producing duplicate rows in the daily report.
+      const cashIdFor = (c) => c.cashId || `charge_${c.id}`;
 
       async function loadDoctors() {
         const snap = await getDocs(collection(db, "doctors"));
@@ -265,8 +273,27 @@
                   }</button>`
             }</td>`;
           rowsEl.appendChild(tr);
-          tr.querySelector('[data-act="collect"]')?.addEventListener("click", () => collect(c));
-          tr.querySelector('[data-act="undo"]')?.addEventListener("click", () => undo(c));
+          // Disabling on the way in gives immediate feedback and stops the
+          // browser queueing a second click on a slow connection.
+          const once = (btn, fn) => {
+            if (!btn) return;
+            btn.addEventListener("click", async () => {
+              if (btn.disabled) return;
+              btn.disabled = true;
+              const label = btn.textContent;
+              btn.textContent = "Working…";
+              try {
+                await fn();
+              } finally {
+                if (document.body.contains(btn)) {
+                  btn.disabled = false;
+                  btn.textContent = label;
+                }
+              }
+            });
+          };
+          once(tr.querySelector('[data-act="collect"]'), () => collect(c));
+          once(tr.querySelector('[data-act="undo"]'), () => undo(c));
         }
         document.getElementById("footTotal").textContent = fmtMoney(total);
         footEl.style.display = "";
@@ -275,15 +302,19 @@
       // Collecting writes the cash entry. The cash id is kept on the charge so
       // undoing can find it again, and so a double click can't bank it twice.
       async function collect(c) {
-        if (c.status === "collected") return;
+        // c.status is only updated after the writes below, so on a fast
+        // double click both calls got past this check and each wrote its own
+        // cash entry. The in-flight set closes that window.
+        if (c.status === "collected" || inFlight.has(c.id)) return;
         const amount = Number(c.amount || 0);
         if (!isFinite(amount) || amount < 0) {
           showToast("This charge has no valid amount.");
           return;
         }
+        inFlight.add(c.id);
         try {
           await ensureAuthed();
-          const cashId = c.cashId || newOpId();
+          const cashId = cashIdFor(c);
           await setDoc(doc(db, "cash", cashId), {
             type: "in",
             amount,
@@ -320,16 +351,20 @@
         } catch (err) {
           console.error(err);
           showToast("Couldn't record the collection.");
+        } finally {
+          inFlight.delete(c.id);
         }
       }
 
       async function undo(c) {
+        if (inFlight.has(c.id)) return;
         if (
           !confirm(
             "Undo this collection?\n\nThe cash entry it created will be removed and the charge goes back to waiting."
           )
         )
           return;
+        inFlight.add(c.id);
         try {
           await ensureAuthed();
           if (c.cashId) await deleteDoc(doc(db, "cash", c.cashId));
@@ -352,6 +387,8 @@
         } catch (err) {
           console.error(err);
           showToast("Couldn't undo it.");
+        } finally {
+          inFlight.delete(c.id);
         }
       }
 
