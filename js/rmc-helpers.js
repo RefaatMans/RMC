@@ -102,8 +102,9 @@
 
   /* An appointment whose note says it was called off. Matched on stems so
      "cancel", "canceled", "cancelled", "cancellation", "reschedule",
-     "rescheduled", "postponed" all count. Add words here to extend it. */
-  const VOID_NOTE_STEMS = ["cancel", "reschedul", "postpon"];
+     "rescheduled", "postponed", "wrong" and "mistake" all count. Add words
+     here to extend it. */
+  const VOID_NOTE_STEMS = ["cancel", "reschedul", "postpon", "wrong", "mistake"];
   function isVoidNote(comment) {
     const t = String(comment == null ? "" : comment).toLowerCase();
     return VOID_NOTE_STEMS.some((w) => t.includes(w));

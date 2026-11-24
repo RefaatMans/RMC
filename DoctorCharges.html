@@ -17,6 +17,16 @@
       .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
       .legend span { display: inline-flex; align-items: center; gap: 5px; }
       .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+      .check-row {
+        display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+        padding: 10px 12px; border-radius: 12px;
+        border: 1px solid rgba(15, 23, 42, .12);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+      }
+      .check-row input { width: 20px; height: 20px; margin: 2px 0 0; flex: 0 0 auto; }
+      .check-row span { display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+      .check-row small { font-weight: 500; }
+      .check-row:has(input:checked) { border-color: var(--primary); background: #eef6ff; }
 
       /* ==================================================================
          Phone layout. Doctors use this on their phones, so below 760px the
@@ -210,6 +220,18 @@
               <input id="note" type="text" placeholder="Anything reception should know" />
             </div>
             <div class="field full">
+              <label class="check-row" for="onAccount">
+                <input id="onAccount" type="checkbox" />
+                <span>
+                  <strong>Put on the patient's account</strong>
+                  <small class="muted">
+                    No cash taken now. Reception adds it to Account
+                    Receivables.
+                  </small>
+                </span>
+              </label>
+            </div>
+            <div class="field full">
               <label for="amount">Amount *</label>
               <input id="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
               <small class="muted" id="shareHint">Your 40%: —</small>
@@ -283,6 +305,7 @@
       const noteEl = document.getElementById("note");
       const noteReq = document.getElementById("noteReq");
       const amountEl = document.getElementById("amount");
+      const onAccountEl = document.getElementById("onAccount");
       const shareHint = document.getElementById("shareHint");
       const saveBtn = document.getElementById("chargeSave");
       const deleteBtn = document.getElementById("chargeDelete");
@@ -306,14 +329,19 @@
           : "Anything reception should know";
       }
       procedureEl.addEventListener("change", syncNoteRequirement);
+      onAccountEl.addEventListener("change", () =>
+        amountEl.dispatchEvent(new Event("input"))
+      );
       amountEl.addEventListener("input", () => {
         const v = Number(amountEl.value);
-        shareHint.textContent =
-          amountEl.value.trim() !== "" && isFinite(v) && v >= 0
-            ? v === 0
-              ? "Nothing to collect"
-              : `Your 40%: ${fmtMoney(doctorShare(v))}`
-            : "Your 40%: —";
+        const has = amountEl.value.trim() !== "" && isFinite(v) && v >= 0;
+        shareHint.textContent = !has
+          ? "Your 40%: —"
+          : v === 0
+          ? "Nothing to collect"
+          : onAccountEl.checked
+          ? `Your 40%: ${fmtMoney(doctorShare(v))} — goes on the patient's account`
+          : `Your 40%: ${fmtMoney(doctorShare(v))}`;
       });
 
       /* ----------------------------------------------------------- load */
@@ -431,7 +459,7 @@
                 : amount === 0
                 ? '<span class="tag off">No charge</span>'
                 : fmtMoney(amount)
-            }</td>
+            }${c && c.onAccount ? ' <span class="tag appt">On account</span>' : ""}</td>
             <td class="right ${amount ? "amt-in" : "muted"}" data-label="My 40%">${
               amount == null || amount === 0 ? "—" : fmtMoney(doctorShare(amount))
             }</td>
@@ -464,6 +492,7 @@
         procedureEl.value = existing ? existing.procedure || "" : "";
         noteEl.value = existing ? existing.note || "" : "";
         amountEl.value = existing ? existing.amount ?? "" : "";
+        onAccountEl.checked = !!(existing && existing.onAccount);
         syncNoteRequirement();
         amountEl.dispatchEvent(new Event("input"));
         deleteBtn.style.display = existing ? "" : "none";
@@ -475,6 +504,7 @@
         modal.classList.remove("show");
         pending = null;
         form.reset();
+        onAccountEl.checked = false;
         shareHint.textContent = "Your 40%: —";
       }
       document.getElementById("chargeCancel").addEventListener("click", closeCharge);
@@ -519,6 +549,9 @@
             procedure,
             note,
             amount,
+            // On account: reception takes no cash, they add it to Account
+            // Receivables by hand.
+            onAccount: onAccountEl.checked,
             status: "pending",
             updatedAt: serverTimestamp(),
             ...RMC.stamp(),

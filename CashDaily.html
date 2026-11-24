@@ -305,7 +305,7 @@
           <td>${d ? fmtDT(d) : '—'}</td>
           <td>${x.patientName || ''}${apptTag}</td>
           <td>${x.doctorName || ''}</td>
-          <td>${x.medicalAct || ''}</td>
+          <td>${x.medicalAct || ''}${x.collectionNote ? '<div style="color:#64748b;font-size:.78rem">' + x.collectionNote + '</div>' : ''}</td>
           <td>${x.type==='in' ? '<span class="in">IN</span>' : '<span class="out">OUT</span>'}</td>
           <td class="${amt<0?'out':'in'}" style="font-weight:800">${fmtAmt(amt)}</td>
           <td>${x.type==='in' ? fmtAmt(RMCH.doctorShare(x.amount)) : '—'}</td>
