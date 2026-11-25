@@ -564,9 +564,11 @@
       }
 
 
-      const ensureAuthed = async () => {
-        if (!auth.currentUser) await signInAnonymously(auth);
-      };
+      // Waits for Firebase to restore a real session before falling back to
+      // anonymous — see makeEnsureAuthed in js/rmc-helpers.js.
+      const ensureAuthed = RMCH.makeEnsureAuthed(
+        auth, onAuthStateChanged, signInAnonymously
+      );
 
       /* ---------- DOM ---------- */
       const form = document.getElementById("apptForm");

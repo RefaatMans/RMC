@@ -259,7 +259,7 @@
         deleteDoc, query, where, orderBy, serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
       import {
-        getAuth, signInAnonymously,
+        getAuth, signInAnonymously, onAuthStateChanged, signOut as fbSignOut,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
       const app = initializeApp(RMCH.firebaseConfig);
@@ -268,16 +268,14 @@
         useFetchStreams: false,
       });
       const auth = getAuth(app);
-      let authPromise = null;
-      function ensureAuthed() {
-        if (auth.currentUser) return Promise.resolve(auth.currentUser);
-        if (!authPromise) {
-          authPromise = signInAnonymously(auth)
-            .then((c) => c.user)
-            .catch((e) => { authPromise = null; throw e; });
-        }
-        return authPromise;
-      }
+      // Waits for Firebase to restore a real session before falling back to
+      // anonymous — see makeEnsureAuthed in js/rmc-helpers.js.
+      // Log out must end the Firebase session as well as this one.
+      RMC.registerFirebaseSignOut(() => fbSignOut(auth));
+
+      const ensureAuthed = RMCH.makeEnsureAuthed(
+        auth, onAuthStateChanged, signInAnonymously
+      );
 
       const {
         newOpId, toJsDate, fmtMoney, fmtTime, todayISO, dayBounds,

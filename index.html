@@ -236,6 +236,7 @@
     </main>
 
     <script src="./js/rmc-auth.js"></script>
+    <script src="./js/rmc-helpers.js"></script>
     <script type="module">
       // ---------- Firebase ----------
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -253,6 +254,8 @@
       import {
         getAuth,
         signInAnonymously,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
       const firebaseConfig = {
@@ -370,23 +373,51 @@
               fail("This account is disabled. Ask an administrator.");
               return;
             }
-            const ok = await RMC.verifyPassword(password, u);
+
+            // Prefer a real Firebase account. Accounts that have not been
+            // migrated yet fall back to the password stored on the user
+            // record, so nobody is locked out while the move is in progress.
+            let ok = false;
+            let authMode = "legacy";
+            try {
+              await signInWithEmailAndPassword(
+                auth,
+                RMCH.emailForUsername(username),
+                password
+              );
+              ok = true;
+              authMode = "firebase";
+            } catch (e) {
+              const code = (e && e.code) || "";
+              // Anything other than "no such account / wrong password" is a
+              // real problem worth surfacing rather than silently retrying.
+              if (
+                !/user-not-found|invalid-credential|wrong-password|invalid-email/.test(code)
+              ) {
+                console.warn("Firebase sign-in failed unexpectedly:", code, e);
+              }
+              ok = await RMC.verifyPassword(password, u);
+            }
+
             if (!ok) {
               fail("Invalid credentials. Please try again.");
               return;
             }
+            console.info(`Signed in via ${authMode}.`);
             RMC.signIn({
               id: snap.id,
               username: u.username || username,
               name: u.displayName || u.username || username,
               role: u.role || "user",
               doctorId: u.doctorId || null,
+              authMode,
             });
             // A doctor account has its own landing screen.
             const dest = RMC.homeFor({ role: u.role || "user" });
             // Best effort — never block the sign-in on it.
             await updateDoc(doc(db, "users", snap.id), {
               lastLoginAt: serverTimestamp(),
+              authMode,
             }).catch((e) => console.warn("lastLoginAt not recorded", e));
             window.location.replace(dest);
             return;

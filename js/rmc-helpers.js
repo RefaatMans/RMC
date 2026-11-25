@@ -110,6 +110,47 @@
     return VOID_NOTE_STEMS.some((w) => t.includes(w));
   }
 
+  /* ------------------------------------------------------------------ auth
+     Staff sign in with a username, but Firebase Authentication works in
+     emails, so the username is mapped onto one. Nothing changes for the
+     people using it — they still type "Fadia". */
+  const AUTH_EMAIL_DOMAIN = "rmc.local";
+  const emailForUsername = (u) =>
+    `${String(u == null ? "" : u).trim().toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
+
+  /* A page must not sign in anonymously before Firebase has had a chance to
+     restore a real session — auth.currentUser is null for a moment on every
+     load, and racing it would downgrade a signed-in nurse to an anonymous
+     visitor. This waits for the first auth state, uses the real user if there
+     is one, and only falls back to anonymous while accounts are still being
+     migrated.
+
+     Each page passes its own imported functions, because a page opened as
+     file:// cannot import a shared module. */
+  function makeEnsureAuthed(auth, onAuthStateChanged, signInAnonymously) {
+    let pending = null;
+    return function ensureAuthed() {
+      if (auth.currentUser) return Promise.resolve(auth.currentUser);
+      if (pending) return pending;
+      pending = new Promise((resolve, reject) => {
+        const stop = onAuthStateChanged(auth, (user) => {
+          stop();
+          if (user) {
+            resolve(user);
+            return;
+          }
+          signInAnonymously(auth)
+            .then((c) => resolve(c.user))
+            .catch((e) => {
+              pending = null;
+              reject(e);
+            });
+        });
+      });
+      return pending;
+    };
+  }
+
   /* The clinic's procedure list. Add, rename or reorder freely — the doctor's
      screen builds its dropdown from this and stores the label as typed here.
      "Other" is always offered on top of these and requires a note. */
@@ -156,5 +197,6 @@
     dayBounds, stampedDate, byName, cashMoment, cashSigned, newOpId,
     showToast, esc, firebaseConfig, isVoidNote, VOID_NOTE_STEMS,
     PROCEDURES, OTHER_PROCEDURE, DOCTOR_RATE, doctorShare, centerShare,
+    AUTH_EMAIL_DOMAIN, emailForUsername, makeEnsureAuthed,
   };
 })(window);

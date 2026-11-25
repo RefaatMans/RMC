@@ -140,6 +140,15 @@
   </footer>
 
   <script src="./js/rmc-auth.js"></script>
+  <script src="./js/rmc-helpers.js"></script>
+  <script type="module">
+    // Logging out has to end the Firebase session too, or the next person at
+    // this machine inherits the last one's sign-in.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+    const auth = getAuth(initializeApp(RMCH.firebaseConfig));
+    RMC.registerFirebaseSignOut(() => signOut(auth));
+  </script>
   <script>
     // Block access if not logged in
     if (!RMC.requireAuth()) throw new Error('not signed in');
