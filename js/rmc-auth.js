@@ -220,6 +220,7 @@
   const K_NAME = "rmcUserName";
   const K_ROLE = "rmcUserRole";
   const K_DOC  = "rmcDoctorId";   // only set for role === "doctor"
+  const K_MODE = "rmcAuthMode";   // "firebase" once the account is migrated
   const K_AT   = "rmcLoginAt";
 
   function isSignedIn() {
@@ -237,9 +238,11 @@
         role: SS.getItem(K_ROLE) || (username === "admin" ? "admin" : "user"),
         // Which doctor record a doctor account speaks for.
         doctorId: SS.getItem(K_DOC) || null,
+        // How this session signed in: "firebase" or "legacy".
+        authMode: SS.getItem(K_MODE) || "legacy",
       };
     } catch (e) {
-      return { id: null, username: "", name: "admin", role: "admin", doctorId: null };
+      return { id: null, username: "", name: "admin", role: "admin", doctorId: null, authMode: "legacy" };
     }
   }
 
@@ -251,11 +254,30 @@
     SS.setItem(K_ROLE, user.role || "user");
     if (user.doctorId) SS.setItem(K_DOC, user.doctorId);
     else SS.removeItem(K_DOC);
+    SS.setItem(K_MODE, user.authMode || "legacy");
     SS.setItem(K_AT, String(Date.now()));
   }
 
+  /* Pages that use Firebase Auth register their sign-out here, so RMC.signOut
+     clears the real session as well as this one. Without it the next person
+     at the same machine would inherit the previous user's Firebase session. */
+  let firebaseSignOut = null;
+  function registerFirebaseSignOut(fn) {
+    firebaseSignOut = fn;
+  }
+
   function signOut() {
-    [K_AUTH, K_USER, K_ID, K_NAME, K_ROLE, K_DOC, K_AT].forEach((k) => {
+    if (firebaseSignOut) {
+      try {
+        const r = firebaseSignOut();
+        if (r && typeof r.catch === "function") {
+          r.catch((e) => console.warn("Firebase sign-out failed", e));
+        }
+      } catch (e) {
+        console.warn("Firebase sign-out failed", e);
+      }
+    }
+    [K_AUTH, K_USER, K_ID, K_NAME, K_ROLE, K_DOC, K_MODE, K_AT].forEach((k) => {
       try { SS.removeItem(k); } catch (e) {}
     });
     global.location.replace("index.html");
@@ -326,7 +348,7 @@
     PW_ALGO, PW_ITERATIONS,
     // session
     isSignedIn, currentUser, signIn, signOut, requireAuth, requireAdmin,
-    isDoctor, requireDoctor, homeFor,
+    isDoctor, requireDoctor, homeFor, registerFirebaseSignOut,
     stamp, paintWhoAmI,
     // exposed for debugging / tests
     _sha256: sha256, _pbkdf2Js: pbkdf2Js, _toB64: toB64,
