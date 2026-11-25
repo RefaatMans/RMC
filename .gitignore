@@ -1,0 +1,5 @@
+
+# Creates an admin account with no sign-in. Committing it would publish
+# it to the live Netlify site, where anyone could make themselves an
+# administrator. Keep it local only.
+create-admin.html
