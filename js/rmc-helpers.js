@@ -151,6 +151,52 @@
     };
   }
 
+  /* Creating an account signs you in as the account you just created, which
+     would throw the administrator out of their own session mid-migration. So
+     it is done on a SECOND Firebase app with its own auth state; the admin's
+     session on the default app is never touched.
+
+     Each page passes its own imported functions, because a page opened as
+     file:// cannot import a shared module. */
+  function makeAccountCreator(fns) {
+    const { initializeApp, getAuth, createUserWithEmailAndPassword,
+            signInWithEmailAndPassword, signOut } = fns;
+    let workerAuth = null;
+    function worker() {
+      if (!workerAuth) {
+        workerAuth = getAuth(initializeApp(firebaseConfig, "rmc-account-worker"));
+      }
+      return workerAuth;
+    }
+    return async function createAccount(username, password) {
+      const a = worker();
+      const email = emailForUsername(username);
+      try {
+        const cred = await createUserWithEmailAndPassword(a, email, password);
+        await signOut(a).catch(() => {});
+        return { uid: cred.user.uid, created: true };
+      } catch (e) {
+        if ((e && e.code) === "auth/email-already-in-use") {
+          // The account is already there. If the password given matches we can
+          // adopt it; if not, only the Firebase Console can sort it out.
+          try {
+            const cred = await signInWithEmailAndPassword(a, email, password);
+            await signOut(a).catch(() => {});
+            return { uid: cred.user.uid, created: false };
+          } catch (e2) {
+            await signOut(a).catch(() => {});
+            const err = new Error(
+              "An account for that username already exists with a different password."
+            );
+            err.code = "rmc/exists-different-password";
+            throw err;
+          }
+        }
+        throw e;
+      }
+    };
+  }
+
   /* The clinic's procedure list. Add, rename or reorder freely — the doctor's
      screen builds its dropdown from this and stores the label as typed here.
      "Other" is always offered on top of these and requires a note. */
@@ -197,6 +243,6 @@
     dayBounds, stampedDate, byName, cashMoment, cashSigned, newOpId,
     showToast, esc, firebaseConfig, isVoidNote, VOID_NOTE_STEMS,
     PROCEDURES, OTHER_PROCEDURE, DOCTOR_RATE, doctorShare, centerShare,
-    AUTH_EMAIL_DOMAIN, emailForUsername, makeEnsureAuthed,
+    AUTH_EMAIL_DOMAIN, emailForUsername, makeEnsureAuthed, makeAccountCreator,
   };
 })(window);
