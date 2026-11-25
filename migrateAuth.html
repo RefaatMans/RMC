@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./assets/LogoCircle.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RMC — Move accounts to Firebase</title>
+    <link rel="stylesheet" href="./css/rmc.css" />
+    <style>
+      .pw-input {
+        width: 100%; max-width: 220px; padding: 7px 9px; border-radius: 9px;
+        border: 1px solid rgba(15, 23, 42, .14);
+        background: linear-gradient(180deg, #fff, #f0f7ff);
+        font: inherit; font-size: .88rem; outline: none;
+      }
+      .pw-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+      tr.migrated { background: #f3fbf5 !important; }
+      .steps { counter-reset: s; margin: 0; padding-left: 0; list-style: none; }
+      .steps li {
+        counter-increment: s; position: relative; padding-left: 30px; margin-bottom: 7px;
+      }
+      .steps li::before {
+        content: counter(s); position: absolute; left: 0; top: 0;
+        width: 21px; height: 21px; border-radius: 999px;
+        background: var(--primary); color: #fff; font-size: .76rem; font-weight: 800;
+        display: grid; place-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header" role="banner">
+      <div class="brand">
+        <img src="./assets/LogoCircle.png" alt="Logo" />
+        <span class="name">Ruwais Medical Center</span>
+      </div>
+      <div class="header-right">
+        <span class="whoami">Signed in as <strong id="whoAmI">—</strong></span>
+        <a class="back" href="users.html" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back
+        </a>
+      </div>
+    </header>
+
+    <main class="wrap" role="main">
+      <section class="hero">
+        <h1>Move accounts to Firebase</h1>
+        <p>One-off. Give each person a password and their account moves across.</p>
+      </section>
+
+      <div class="notice info" style="margin-bottom: 14px">
+        <ol class="steps">
+          <li>Set a password for each account below and press <strong>Move</strong>.</li>
+          <li>Tell each person their new password — the old one stops being used.</li>
+          <li>Everyone signs in as normal. Nothing looks different to them.</li>
+          <li>Once every row says <strong>Moved</strong>, tell me and I'll do stage 3.</li>
+        </ol>
+      </div>
+
+      <div class="notice" id="resetNote" style="margin-bottom: 14px">
+        <strong>If someone forgets their password later:</strong> open Firebase
+        Console → Authentication → Users, delete that person's row, then come
+        back here and move them across again with a new password.
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <span class="count" id="count">Loading…</span>
+          <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th style="width: 90px">Role</th>
+                <th style="width: 110px">Status</th>
+                <th style="width: 240px">New password</th>
+                <th style="width: 110px"></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="5" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <footer><small>&copy; <span id="year"></span> RMC Medical Center</small></footer>
+
+    <script src="./js/rmc-auth.js"></script>
+    <script src="./js/rmc-helpers.js"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import {
+        initializeFirestore, collection, doc, getDocs, updateDoc, serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+      import {
+        getAuth, signInAnonymously, onAuthStateChanged,
+        createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+      const app = initializeApp(RMCH.firebaseConfig);
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+      });
+      const auth = getAuth(app);
+      const ensureAuthed = RMCH.makeEnsureAuthed(auth, onAuthStateChanged, signInAnonymously);
+
+      // Runs on a second Firebase app so this admin's own session survives.
+      const createAccount = RMCH.makeAccountCreator({
+        initializeApp, getAuth, createUserWithEmailAndPassword,
+        signInWithEmailAndPassword, signOut,
+      });
+
+      const { showToast, esc } = RMCH;
+
+      if (!RMC.requireAdmin()) throw new Error("not an administrator");
+      RMC.paintWhoAmI("#whoAmI");
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      const rowsEl = document.getElementById("rows");
+      const countEl = document.getElementById("count");
+      let users = [];
+
+      async function load() {
+        await ensureAuthed();
+        const snap = await getDocs(collection(db, "users"));
+        users = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) =>
+            (a.username || "").localeCompare(b.username || "", undefined, { sensitivity: "base" })
+          );
+        render();
+      }
+
+      function render() {
+        const left = users.filter((u) => !u.firebaseUid).length;
+        countEl.textContent = left
+          ? `${left} account${left === 1 ? "" : "s"} still to move`
+          : `All ${users.length} account${users.length === 1 ? "" : "s"} moved`;
+
+        rowsEl.innerHTML = "";
+        if (!users.length) {
+          rowsEl.innerHTML = `<tr><td colspan="5" class="empty">No users found.</td></tr>`;
+          return;
+        }
+
+        for (const u of users) {
+          const done = !!u.firebaseUid;
+          const tr = document.createElement("tr");
+          if (done) tr.className = "migrated";
+          tr.innerHTML = `
+            <td><strong>${esc(u.username || u.id)}</strong><br>
+                <small class="muted">${esc(RMCH.emailForUsername(u.username || u.id))}</small></td>
+            <td><span class="tag ${
+              u.role === "admin" ? "admin" : u.role === "doctor" ? "appt" : "user"
+            }">${u.role === "admin" ? "Admin" : u.role === "doctor" ? "Doctor" : "Nurse"}</span></td>
+            <td>${
+              done
+                ? '<span class="tag paid">Moved</span>'
+                : '<span class="tag due">Not yet</span>'
+            }</td>
+            <td>${
+              done
+                ? '<span class="muted" style="font-size:.84rem">Reset in Firebase Console</span>'
+                : `<input class="pw-input" type="text" autocomplete="off"
+                     placeholder="At least 6 characters" aria-label="New password">`
+            }</td>
+            <td>${
+              done ? "" : `<button class="btn btn-sm" data-act="move">Move</button>`
+            }</td>`;
+          rowsEl.appendChild(tr);
+
+          const btn = tr.querySelector('[data-act="move"]');
+          if (btn) {
+            const input = tr.querySelector(".pw-input");
+            input.addEventListener("keydown", (e) => {
+              if (e.key === "Enter") { e.preventDefault(); btn.click(); }
+            });
+            btn.addEventListener("click", () => move(u, input, btn));
+          }
+        }
+      }
+
+      async function move(u, input, btn) {
+        const password = (input.value || "").trim();
+        if (password.length < 6) {
+          showToast("Password must be at least 6 characters.");
+          input.focus();
+          return;
+        }
+        btn.disabled = true;
+        input.disabled = true;
+        const label = btn.textContent;
+        btn.textContent = "Moving…";
+        try {
+          await ensureAuthed();
+          const { uid, created } = await createAccount(u.username || u.id, password);
+          await updateDoc(doc(db, "users", u.id), {
+            firebaseUid: uid,
+            authMode: "firebase",
+            migratedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            ...RMC.stamp(),
+          });
+          u.firebaseUid = uid;
+          showToast(
+            created
+              ? `${u.username || u.id} moved.`
+              : `${u.username || u.id} already had an account — linked it.`
+          );
+          render();
+        } catch (err) {
+          console.error(err);
+          const code = (err && err.code) || "";
+          showToast(
+            code === "rmc/exists-different-password"
+              ? "That username already has an account with a different password. Delete it in Firebase Console, then try again."
+              : /permission-denied|insufficient/i.test(code)
+              ? "The database refused the write — check your rules allow 'users'."
+              : /operation-not-allowed/.test(code)
+              ? "Email/Password sign-in is not enabled in Firebase Console."
+              : `Couldn't move the account (${code || "unknown error"}).`
+          );
+          btn.disabled = false;
+          input.disabled = false;
+          btn.textContent = label;
+        }
+      }
+
+      document.getElementById("refreshBtn").addEventListener("click", load);
+      load().catch((err) => {
+        console.error(err);
+        rowsEl.innerHTML = `<tr><td colspan="5" class="empty">Couldn't load the accounts.</td></tr>`;
+        countEl.textContent = "—";
+      });
+    </script>
+  </body>
+</html>

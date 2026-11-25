@@ -49,6 +49,8 @@
           <span class="count" id="count">Loading…</span>
           <div class="toolbar-group">
             <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+            <a class="btn btn-secondary btn-sm" href="migrateAuth.html"
+               style="text-decoration:none; display:inline-flex; align-items:center">Move to Firebase</a>
             <button class="btn" id="addBtn">Add user</button>
           </div>
         </div>
@@ -145,6 +147,7 @@
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
       import {
         getAuth, signInAnonymously, onAuthStateChanged,
+        createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
       } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
       const app = initializeApp(RMCH.firebaseConfig);
@@ -162,6 +165,13 @@
       );
 
       const { toJsDate, fmtDateTime, showToast } = RMCH;
+
+      // Runs on a second Firebase app, so creating an account does not replace
+      // the administrator's own session.
+      const createAccount = RMCH.makeAccountCreator({
+        initializeApp, getAuth, createUserWithEmailAndPassword,
+        signInWithEmailAndPassword, signOut,
+      });
 
       if (!RMC.requireAdmin()) throw new Error("not an administrator");
       RMC.paintWhoAmI("#whoAmI");
@@ -305,7 +315,11 @@
             <td>${roleTag(u)}</td>
             <td><span class="tag ${disabled ? "off" : "paid"}">${
               disabled ? "Disabled" : "Active"
-            }</span></td>
+            }</span>${
+              u.firebaseUid
+                ? ""
+                : '<br><span class="tag due" title="Still signing in the old way">Not moved</span>'
+            }</td>
             <td class="nowrap muted">${fmtDateTime(toJsDate(u.createdAt))}</td>
             <td class="nowrap muted">${fmtDateTime(toJsDate(u.lastLoginAt))}</td>
             <td class="nowrap">
@@ -369,7 +383,9 @@
         activeEl.value = u.active === false ? "false" : "true";
         passwordEl.value = "";
         pwReq.style.display = "none";
-        pwHelp.textContent = "Leave blank to keep the current password.";
+        pwHelp.textContent = u.firebaseUid
+          ? "This account signs in through Firebase. Its password can only be reset from Firebase Console → Authentication → Users."
+          : "Leave blank to keep the current password.";
         openModal();
       }
 
@@ -464,11 +480,33 @@
 
           if (editingId) {
             await updateDoc(doc(db, "users", id), payload);
-            showToast(password ? "Password updated." : "User updated.");
+            showToast(
+              password
+                ? users.find((x) => x.id === id)?.firebaseUid
+                  ? "Saved — but the sign-in password is unchanged. Reset it in Firebase Console."
+                  : "Password updated."
+                : "User updated."
+            );
           } else {
+            // Give new staff a real Firebase account straight away, so there
+            // is nothing left to migrate later. The PBKDF2 fields stay on the
+            // record as a fallback until stage three retires them.
+            let madeAccount = false;
+            try {
+              const { uid } = await createAccount(username, password);
+              payload.firebaseUid = uid;
+              payload.authMode = "firebase";
+              madeAccount = true;
+            } catch (e) {
+              console.warn("Firebase account not created:", e && e.code, e);
+            }
             payload.createdAt = serverTimestamp();
             await setDoc(doc(db, "users", id), payload);
-            showToast("User created.");
+            showToast(
+              madeAccount
+                ? "User created."
+                : "User created, but their Firebase account wasn't — use Move to Firebase."
+            );
           }
           closeModal();
           await load();
